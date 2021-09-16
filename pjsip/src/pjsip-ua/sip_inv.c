@@ -2610,6 +2610,7 @@ PJ_DEF(pj_status_t) pjsip_inv_end_session(  pjsip_inv_session *inv,
 
     /* Create appropriate message. */
     switch (inv->state) {
+    case PJSIP_INV_STATE_NULL:
     case PJSIP_INV_STATE_CALLING:
     case PJSIP_INV_STATE_EARLY:
     case PJSIP_INV_STATE_INCOMING:
@@ -2661,6 +2662,9 @@ PJ_DEF(pj_status_t) pjsip_inv_end_session(  pjsip_inv_session *inv,
 
 	    /* For UAS, send a final response. */
 	    tdata = inv->invite_tsx->last_tx;
+	    if (tdata == NULL)
+		tdata = inv->last_answer;
+
 	    PJ_ASSERT_RETURN(tdata != NULL, PJ_EINVALIDOP);
 
 	    //status = pjsip_dlg_modify_response(inv->dlg, tdata, st_code,
@@ -4078,8 +4082,8 @@ static pj_bool_t handle_uac_tsx_response(pjsip_inv_session *inv,
     if (inv->state != PJSIP_INV_STATE_DISCONNECTED &&
 	((tsx->status_code == PJSIP_SC_CALL_TSX_DOES_NOT_EXIST &&
 	    tsx->method.id != PJSIP_CANCEL_METHOD) ||
-	 tsx->status_code == PJSIP_SC_REQUEST_TIMEOUT ||
-	 tsx->status_code == PJSIP_SC_TSX_TIMEOUT))
+	 (tsx->status_code == PJSIP_SC_REQUEST_TIMEOUT &&
+	  !pjsip_cfg()->endpt.keep_inv_after_tsx_timeout)))
     {
 	pjsip_tx_data *bye;
 	pj_status_t status;

@@ -1055,6 +1055,29 @@ typedef struct pjsua_call_setting
      */
     unsigned         vid_cnt;
 
+    /**
+     * Media direction. This setting will only be used if the flag
+     * PJSUA_CALL_SET_MEDIA_DIR is set, and it will persist for subsequent
+     * offers or answers. 
+     * For example, a media that is set as PJMEDIA_DIR_ENCODING can only
+     * mark the stream in the SDP as sendonly or inactive, but will not
+     * become sendrecv in subsequent offers and answers.
+     * Application can update the media direction in any API or callback
+     * that accepts pjsua_call_setting as a parameter, such as via
+     * pjsua_call_reinvite/update() or in on_call_rx_offer/reinvite()
+     * callback.
+     *
+     * The index of the media dir will correspond to the provisional media
+     * in pjsua_call_info.prov_media.
+     * For offers that involve adding new medias (such as initial offer),
+     * the index will correspond to all new audio media first, then video.
+     * For example, for a new call with 2 audios and 1 video, media_dir[0]
+     * and media_dir[1] will be for the audios, and media_dir[2] video.
+     *
+     * Default: PJMEDIA_DIR_ENCODING_DECODING
+     */
+    pjmedia_dir	     media_dir[PJMEDIA_MAX_SDP_MEDIA];
+
 } pjsua_call_setting;
 
 
@@ -1137,7 +1160,9 @@ typedef struct pjsua_callback
      * Notify application when an audio media session is about to be created
      * (as opposed to #on_stream_created() and #on_stream_created2() which are
      * called *after* the session has been created). The application may change
-     * stream parameters like the jitter buffer size.
+     * some stream info parameter values, i.e: jb_init, jb_min_pre, jb_max_pre,
+     * jb_max, use_ka, rtcp_sdes_bye_disabled, jb_discard_algo (audio),
+     * codec_param->enc_fmt (video).
      *
      * @param call_id       Call identification.
      * @param param         The on stream precreate callback parameter.
@@ -5129,7 +5154,12 @@ typedef enum pjsua_call_flag
      * useful in IP address change scenario where IP version has been changed
      * and application needs to update target IP address.
      */
-    PJSUA_CALL_UPDATE_TARGET = 64
+    PJSUA_CALL_UPDATE_TARGET = 64,
+
+    /**
+     * Set media direction as specified in pjsua_call_setting.media_dir.
+     */
+    PJSUA_CALL_SET_MEDIA_DIR = 128
 
 } pjsua_call_flag;
 
@@ -8279,13 +8309,14 @@ PJ_DECL(pj_status_t) pjsua_vid_win_rotate(pjsua_vid_win_id wid,
  * capability. Currently it is only supported on SDL backend.
  *
  * @param wid		The video window ID.
- * @param enabled   	Set to PJ_TRUE if full screen is desired, PJ_FALSE 
- *			otherwise.
+ * @param mode   	Fullscreen mode, see pjmedia_vid_dev_fullscreen_flag.
  *
  * @return		PJ_SUCCESS on success, or the appropriate error code.
  */
-PJ_DECL(pj_status_t) pjsua_vid_win_set_fullscreen(pjsua_vid_win_id wid,
-                                                  pj_bool_t enabled);
+PJ_DECL(pj_status_t) pjsua_vid_win_set_fullscreen(
+					pjsua_vid_win_id wid,
+					pjmedia_vid_dev_fullscreen_flag mode);
+
 
 /*
  * Video codecs API
@@ -8487,6 +8518,20 @@ PJ_DECL(pj_status_t) pjsua_vid_conf_connect(pjsua_conf_port_id source,
 PJ_DECL(pj_status_t) pjsua_vid_conf_disconnect(pjsua_conf_port_id source,
 					       pjsua_conf_port_id sink);
 
+
+/**
+ * Update or refresh port states from video port info. Some port may
+ * change its port info in the middle of a session, for example when
+ * a video stream decoder learns that incoming video size or frame rate
+ * has changed, video conference needs to be informed to update its
+ * internal states.
+ *
+ * @param port_id	The slot id of the port to be updated.
+ *
+ * @return		PJ_SUCCESS on success, or the appropriate error
+ *			code.
+ */
+PJ_DECL(pj_status_t) pjsua_vid_conf_update_port(pjsua_conf_port_id port_id);
 
 
 /* end of VIDEO API */

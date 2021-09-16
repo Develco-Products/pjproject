@@ -1683,6 +1683,16 @@ public:
     void stopTransmit(const VideoMedia &sink) const PJSUA2_THROW(Error);
 
     /**
+     * Update or refresh port states from video port info. Some port may
+     * change its port info in the middle of a session, for example when
+     * a video stream decoder learns that incoming video size or frame rate
+     * has changed, video conference needs to be informed to update its
+     * internal states.
+     *
+     */
+    void update() const PJSUA2_THROW(Error);
+
+    /**
      * Default Constructor.
      *
      * Normally application will not create VideoMedia object directly,
@@ -1879,6 +1889,17 @@ public:
      *				otherwise.
      */
     void setFullScreen(bool enabled) PJSUA2_THROW(Error);
+
+    /**
+     * Set video window full-screen. This operation is valid only when the
+     * underlying video device supports PJMEDIA_VID_DEV_CAP_OUTPUT_FULLSCREEN
+     * capability. Currently it is only supported on SDL backend.
+     *
+     * @param mode		Fullscreen mode, see
+     *				pjmedia_vid_dev_fullscreen_flag.
+     */
+    void setFullScreen2(pjmedia_vid_dev_fullscreen_flag mode)
+							PJSUA2_THROW(Error);
 
 private:
     pjsua_vid_win_id		winId;
