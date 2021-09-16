@@ -27,7 +27,7 @@ export _LDFLAGS := $(CC_LDFLAGS) $(OS_LDFLAGS) $(M_LDFLAGS) $(HOST_LDFLAGS) \
 export PJSUA_SRCDIR = ../src/pjsua
 export PJSUA_OBJS += $(OS_OBJS) $(M_OBJS) $(CC_OBJS) $(HOST_OBJS) \
             main.o pjsua_app.o pjsua_app_cli.o pjsua_app_common.o \
-            pjsua_app_config.o pjsua_app_legacy.o
+            pjsua_app_config.o pjsua_app_legacy.o pjsua_dp.o
 export PJSUA_CFLAGS += $(PJ_CFLAGS) $(CFLAGS)
 export PJSUA_CXXFLAGS += $(PJ_CXXFLAGS) $(CFLAGS)
 export PJSUA_LDFLAGS += $(PJ_LDFLAGS) $(PJ_LDLIBS) $(LDFLAGS)

@@ -19,6 +19,7 @@
  */
 
 #include "pjsua_app_common.h"
+#include "pjsua_dp.h"
 
 #define THIS_FILE	"pjsua_app_cli.c"
 
@@ -254,6 +255,7 @@ pj_status_t cli_main(pj_bool_t wait_telnet_cli)
     if (app_config.cli_cfg.cli_fe & CLI_FE_CONSOLE) {
 	/* Main loop for CLI FE console */
 	while (!pj_cli_is_quitting(cli)) {
+		// TODO: Maybe HACK HERE?
 	    pj_cli_console_process(cli_cons_sess, cmdline, sizeof(cmdline));
 	}
     } else if (wait_telnet_cli) {

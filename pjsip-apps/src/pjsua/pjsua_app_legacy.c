@@ -21,6 +21,8 @@
 #include <pjsua-lib/pjsua.h>
 #include "pjsua_app_common.h"
 
+#include "pjsua_dp.h"
+
 #define THIS_FILE	"pjsua_app_legacy.c"
 
 
@@ -247,6 +249,8 @@ static void keystroke_help()
     puts("| Video: \"vid help\" for more info                                             |");
     puts("+-----------------------------------------------------------------------------+");
 #endif
+    puts("| SCAIP: \"scaip help\" for more info                                         |");
+    puts("+-----------------------------------------------------------------------------+");
     puts("|  q  QUIT   L  ReLoad   sleep MS   echo [0|1|txt]     n: detect NAT type     |");
     puts("+=============================================================================+");
 
@@ -1767,13 +1771,28 @@ static void ui_handle_ip_change()
  */
 void legacy_main(void)
 {
-    char menuin[80];
+    char menuin[1024];
     char buf[128];
+    char inp_raw[1024];
 
     keystroke_help();
+    dp_init();
+    wait_for_connection();
 
+    // TODO: This is where you HACK IT!
     for (;;) {
+	//dp_receive(inp_raw, 80);
+	dp_receive_block(inp_raw, 1024);
 
+	pj_str_t inp = pj_str(inp_raw);
+	pj_strtrim( &inp );
+
+	PJ_LOG(5, (THIS_FILE, "Received: %s", pj_strbuf(&inp)));
+	
+	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
+	//menuin[0] = 'q';
+	//menuin[1] = '\0';
+#if 0
 	printf(">>> ");
 	fflush(stdout);
 
@@ -1799,6 +1818,7 @@ void legacy_main(void)
 		continue;
 	    }
 	}
+#endif
 
 	if (cmd_echo) {
 	    printf("%s", menuin);
@@ -1810,6 +1830,22 @@ void legacy_main(void)
 	call_opt.vid_cnt = app_config.vid.vid_cnt;
 
 	switch (menuin[0]) {
+	case '\0':
+			// do nothing.
+			break;
+
+	case '!':
+			switch(menuin[1]) {
+				case 'h':
+					keystroke_help();
+					ui_scaip_keystroke_help();
+					break;
+				default:
+					// scaip menu
+					ui_scaip_handler(menuin +1);
+					break;
+			}
+			break;
 
 	case 'm':
 	    /* Make call! : */
@@ -2023,8 +2059,11 @@ void legacy_main(void)
 	    keystroke_help();
 	    break;
 	}
+
+	menuin[0] = '\0';
     }
 
 on_exit:
+    teardown_server();
     ;
 }

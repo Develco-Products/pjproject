@@ -18,6 +18,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
  */
 #include "pjsua_app.h"
+#include "pjsua_dp.h"
 
 #define THIS_FILE	"pjsua_app.c"
 
@@ -711,6 +712,19 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 	      (int)from->slen, from->ptr,
 	      (int)text->slen, text->ptr,
 	      (int)mime_type->slen, mime_type->ptr));
+
+		/* Compile data send back to host. */
+		char msg_buffer[1024];
+		pj_ssize_t offset = pj_strlen(from);
+		pj_memcpy(msg_buffer, 					pj_strbuf(from), pj_strlen(from));
+		pj_memcpy(msg_buffer + offset,	pj_strbuf(text), pj_strlen(text));
+		offset += pj_strlen(text);
+		pj_memcpy(msg_buffer + offset,	pj_strbuf(mime_type), pj_strlen(mime_type));
+		offset += pj_strlen(mime_type);
+		msg_buffer[offset] = '\0';
+		PJ_LOG(5,(THIS_FILE, "Sending buffer: %s", msg_buffer));
+
+		dp_send(msg_buffer, offset +1);
 }
 
 
