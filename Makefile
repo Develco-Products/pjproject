@@ -39,6 +39,8 @@ lib:
 		fi; \
 	done; \
 
+pjsua: lib
+	make -C pjsip-apps/build $@
 
 .PHONY: lib doc
 
