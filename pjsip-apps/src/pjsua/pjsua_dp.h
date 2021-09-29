@@ -6,14 +6,18 @@
 
 #include <pj/types.h>
 
-int dp_init(void);
-int setup_server(int port);
-int wait_for_connection(void);
-int dp_receive(char* const inp, pj_size_t lim);
-int dp_receive_block(char* const inp, pj_size_t lim);
+pj_status_t start_ssap_iface(void);
+pj_status_t update_ssap_iface(void);
+pj_status_t close_ssap_connection(void);
+pj_status_t reset_ssap_connection(void);
+pj_status_t reset_ssap_iface(void);
+pj_status_t teardown_ssap_iface(void);
+
+pj_status_t dp_receive(char* const inp, pj_ssize_t lim);
+//pj_status_t dp_receive_block(char* const inp, pj_ssize_t lim);
+//pj_status_t receive_handler(char* const inp, pj_ssize_t lim);
 int dp_send(const void* const data, pj_ssize_t len);
 void ui_scaip_handler(const char* const inp);
-int teardown_server(void);
 void ui_scaip_keystroke_help(void);
 
 

@@ -1778,15 +1778,33 @@ void legacy_main(void)
     char menuin[1024];
     char buf[128];
     char inp_raw[1024];
+		int error_count = 0;
+		pj_status_t status;
 
     keystroke_help();
-    dp_init();
-    wait_for_connection();
+    //dp_init();
+    //wait_for_connection();
+		status = start_ssap_iface();
+		if( status != PJ_SUCCESS ) {
+			PJ_LOG(1, (THIS_FILE, "Could not start pjsua app. Aborting..."));
+			teardown_ssap_iface();
+			return;
+		}
+
+			
 
     // TODO: This is where you HACK IT!
     for (;;) {
 	//dp_receive(inp_raw, 80);
-	dp_receive_block(inp_raw, 1024);
+	//dp_receive_block(inp_raw, 1024);
+	//receive_handler(inp_raw, 1024);
+	PJ_LOG(3, (THIS_FILE, "Ready to receive new input."));
+	status = receive(inp_raw, 1024);
+
+	if(status != PJ_SUCCESS) {
+		PJ_LOG(5, (THIS_FILE, "Something went wrong during reception."));
+		continue;
+	}
 
 	pj_str_t inp = pj_str(inp_raw);
 	pj_strtrim( &inp );
@@ -1819,7 +1837,7 @@ void legacy_main(void)
 		menuin[1] = '\0';
 	    } else {
 		puts("Switched back to console from file redirection");
-		continue;
+continue;
 	    }
 	}
 #endif
@@ -1835,7 +1853,16 @@ void legacy_main(void)
 
 	switch (menuin[0]) {
 	case '\0':
-			// do nothing.
+			if( error_count++ > 5 ) {
+				// Server may have close connection.
+				//PJ_LOG(5, (THIS_FILE, "Closing down socket."));
+				//teardown_server();
+				PJ_LOG(5, (THIS_FILE, "Restarting socket."));
+				error_count = 0;
+				//dp_init();
+				//wait_for_connection();
+				reset_ssap_connection();
+			}
 			break;
 
 	case '!':
@@ -2068,6 +2095,6 @@ void legacy_main(void)
     }
 
 on_exit:
-    teardown_server();
+    teardown_ssap_iface();
     ;
 }
