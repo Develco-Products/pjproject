@@ -2172,6 +2172,8 @@ continue;
     }
 
 on_exit:
+#if UI_SOCKET
     teardown_ssap_iface();
+#endif
     ;
 }
