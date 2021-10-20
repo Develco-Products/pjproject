@@ -537,6 +537,7 @@ pj_status_t create_uas_dialog( pjsip_user_agent *ua,
 
 	/* Clone the Record-Route, change the type to Route header. */
 	route = (pjsip_route_hdr*) pjsip_hdr_clone(dlg->pool, rr);
+  PJ_LOG(3,("sip_dialog", "%s", __func__));      // TODO: Remove
 	pjsip_routing_hdr_set_route(route);
 
 	/* Add to route set. */
@@ -782,6 +783,7 @@ PJ_DEF(pj_status_t) pjsip_dlg_fork( const pjsip_dialog *first_dlg,
 	    pjsip_route_hdr *r;
 	    r = (pjsip_route_hdr*) pjsip_hdr_clone(dlg->pool, hdr);
 	    pjsip_routing_hdr_set_route(r);
+  PJ_LOG(3,("sip_dialog", "%s", __func__));      // TODO: Remove
 	    pj_list_push_back(&dlg->route_set, r);
 	}
     }
@@ -1185,6 +1187,7 @@ static pj_status_t dlg_create_request_throw( pjsip_dialog *dlg,
     for (; route != end_list; route = route->next ) {
 	pjsip_route_hdr *r;
 	r = (pjsip_route_hdr*) pjsip_hdr_shallow_clone( tdata->pool, route );
+  PJ_LOG(3,("sip_dialog", "%s", __func__));      // TODO: Remove
 	pjsip_routing_hdr_set_route(r);
 	pjsip_msg_add_hdr(tdata->msg, (pjsip_hdr*)r);
     }
@@ -1875,6 +1878,7 @@ static void dlg_update_routeset(pjsip_dialog *dlg, const pjsip_rx_data *rdata)
 	if (hdr->type == PJSIP_H_RECORD_ROUTE) {
 	    pjsip_route_hdr *r;
 	    r = (pjsip_route_hdr*) pjsip_hdr_clone(dlg->pool, hdr);
+  PJ_LOG(3,("sip_dialog", "%s", __func__));      // TODO: Remove
 	    pjsip_routing_hdr_set_route(r);
 	    pj_list_push_back(&dlg->route_set, r);
 	}

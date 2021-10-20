@@ -83,6 +83,7 @@ PJ_DEF(pj_status_t) pjmedia_aud_driver_init(unsigned drv_idx,
     unsigned i, dev_cnt;
     pj_status_t status;
 
+    PJ_LOG(3, (THIS_FILE, "============ Initializing Audio devices ============"));  // TODO: Remove when not needed.
     if (!refresh && drv->create) {
 	/* Create the factory */
 	f = (*drv->create)(aud_subsys.pf);
@@ -115,13 +116,14 @@ PJ_DEF(pj_status_t) pjmedia_aud_driver_init(unsigned drv_idx,
     /* enabling this will cause pjsua-lib initialization to fail when there
      * is no sound device installed in the system, even when pjsua has been
      * run with --null-audio
-     *
+     */
     if (dev_cnt == 0) {
 	f->op->destroy(f);
 	return PJMEDIA_EAUD_NODEV;
     }
-    */
+    //*/
 
+    PJ_LOG(3, (THIS_FILE, "============ Audio devices ============"));  // TODO: Remove when not needed.
     /* Fill in default devices */
     drv->play_dev_idx = drv->rec_dev_idx =
 			drv->dev_idx = PJMEDIA_AUD_INVALID_DEV;
@@ -138,6 +140,7 @@ PJ_DEF(pj_status_t) pjmedia_aud_driver_init(unsigned drv_idx,
 	    /* Set driver name */
 	    pj_ansi_strncpy(drv->name, info.driver, sizeof(drv->name));
 	    drv->name[sizeof(drv->name)-1] = '\0';
+            PJ_LOG(3, (THIS_FILE, "  Audio device(%d): %s", i, info.driver)); // TODO: Remove when not needed.
 	}
 
 	if (drv->play_dev_idx < 0 && info.output_count) {
@@ -365,6 +368,14 @@ static pj_status_t lookup_dev(pjmedia_aud_dev_index id,
 			      unsigned *p_local_index)
 {
     int f_id, index;
+    PJ_LOG(3, (THIS_FILE, "  Lookup audio device: %d", id)); // TODO: Remove when not needed.
+    PJ_LOG(3, (THIS_FILE, "  No. audio device: %d", aud_subsys.drv_cnt)); // TODO: Remove when not needed.
+
+    if(aud_subsys.drv_cnt == 0) {
+        pjmedia_aud_dev_refresh();
+    }
+    PJ_LOG(3, (THIS_FILE, "  No. audio device: %d", pjmedia_aud_dev_count())); // TODO: Remove when not needed.
+
 
     if (id < 0) {
 	unsigned i;
@@ -374,6 +385,7 @@ static pj_status_t lookup_dev(pjmedia_aud_dev_index id,
 
 	for (i=0; i<aud_subsys.drv_cnt; ++i) {
 	    pjmedia_aud_driver *drv = &aud_subsys.drv[i];
+            PJ_LOG(3, (THIS_FILE, "    Audio device(%d): %s", id, drv->name)); // TODO: Remove when not needed.
 	    if (drv->dev_idx >= 0) {
 		id = drv->dev_idx;
 		make_global_index(i, &id);

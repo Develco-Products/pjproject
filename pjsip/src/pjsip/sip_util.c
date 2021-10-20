@@ -36,6 +36,9 @@
 
 #define THIS_FILE    "endpoint"
 
+static int mark_id = 0;
+#define MARK(m) PJ_LOG(3,("sip_util", "  %s(%d): %s", __func__, mark_id, m)); mark_id++
+
 static const char *event_str[] = 
 {
     "UNIDENTIFIED",
@@ -1031,6 +1034,7 @@ PJ_DEF(pj_status_t) pjsip_process_route_set(pjsip_tx_data *tdata,
 	pjsip_route_hdr *route = pjsip_route_hdr_create(tdata->pool);
 	route->name_addr.uri = (pjsip_uri*) 
 			       pjsip_uri_get_uri(tdata->msg->line.req.uri);
+    MARK("");
 	if (last_route_hdr)
 	    pj_list_insert_after(last_route_hdr, route);
 	else

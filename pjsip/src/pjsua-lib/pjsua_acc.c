@@ -23,6 +23,9 @@
 
 #define THIS_FILE		"pjsua_acc.c"
 
+static int mark_id = 0;
+#define MARK(m)   PJ_LOG(3,(THIS_FILE, "  %s(%d): %s", __func__, mark_id, m));mark_id++
+
 enum
 {
     OUTBOUND_UNKNOWN,	// status unknown
@@ -1823,6 +1826,8 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
 	      contact_rewrite_method == PJSUA_CONTACT_REWRITE_NO_UNREG ||
               contact_rewrite_method == PJSUA_CONTACT_REWRITE_ALWAYS_UPDATE);
 
+    MARK("Unregistering current contact.");
+
     if (contact_rewrite_method == PJSUA_CONTACT_REWRITE_UNREGISTER) {
 	/* Unregister current contact */
 	pjsua_acc_set_registration(acc->index, PJ_FALSE);
@@ -1837,6 +1842,7 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
      * Build new Contact header
      */
     {
+        MARK("Build new contact header.");
 	const char *ob = ";ob";
 	char *tmp;
 	const char *beginquote, *endquote;
@@ -1905,6 +1911,8 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
          */
 
     }
+
+    MARK("finishing up");
 
     if (contact_rewrite_method == PJSUA_CONTACT_REWRITE_NO_UNREG &&
         acc->regc != NULL)
@@ -2008,9 +2016,14 @@ static void update_service_route(pjsua_acc *acc, pjsip_rx_data *rdata)
     }
 
     /* Then append the Service-Route URIs */
+    char buf[1024];
     for (i=0; i<uri_cnt; ++i) {
 	hr = pjsip_route_hdr_create(acc->pool);
 	hr->name_addr.uri = (pjsip_uri*)pjsip_uri_clone(acc->pool, uri[i]);
+
+  pjsip_uri_print(PJSIP_URI_IN_ROUTING_HDR, hr->name_addr.uri, buf, 1024);
+  MARK(buf);
+
 	pj_list_push_back(&acc->route_set, hr);
     }
 
