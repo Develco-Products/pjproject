@@ -31,16 +31,43 @@
  * - apply 'setbuf(stdout, 0)', but it is not guaranteed by the standard:
  *   http://stackoverflow.com/questions/1716296
  */
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
-    (defined (_MSC_VER) && _MSC_VER >= 1400)
-/* Variadic macro is introduced in C99; MSVC supports it in since 2005. */
-#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
-#  define puts(s) {puts(s);fflush(stdout);}
-#endif
-
+//#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
+//    (defined (_MSC_VER) && _MSC_VER >= 1400)
+///* Variadic macro is introduced in C99; MSVC supports it in since 2005. */
+//#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
+//#  define puts(s) {puts(s);fflush(stdout);}
+//#endif
 
 static pj_bool_t	cmd_echo;
 
+
+
+void list_active_calls(void)
+{
+	const int i = pjsua_call_get_count();
+	pjsua_call_info ci;
+
+  if (current_call != PJSUA_INVALID_ID) {
+		if (pjsua_call_get_info(current_call, &ci)==PJ_SUCCESS) {
+		  	printf("Current call id=%d to %.*s [%.*s]\n", current_call,
+					(int)ci.remote_info.slen, ci.remote_info.ptr,
+					(int)ci.state_text.slen, ci.state_text.ptr);
+		}
+	}
+
+	if(i == 0) {
+		puts("Call list is empty.");
+	}
+	else {
+		for(int j=0; j!=i; ++j) {
+			if(pjsua_call_get_info(j, &ci) == PJ_SUCCESS) {
+				printf("  %d: to %.*s [%.*s]\n", j, 
+						(int)ci.remote_info.slen, ci.remote_info.ptr,
+						(int)ci.state_text.slen, ci.state_text.ptr);
+			}
+		}
+	}
+}
 /*
  * Print buddy list.
  */
@@ -95,8 +122,12 @@ static void ui_input_url(const char *title, char *buf, pj_size_t len,
     printf("%s: ", title);
 
     fflush(stdout);
-    if (fgets(buf, (int)len, stdin) == NULL)
-	return;
+		if(ui_input(buf, len) == -1) {
+			return;
+		}
+
+//    if (fgets(buf, (int)len, stdin) == NULL)
+//	return;
     len = strlen(buf);
 
     /* Left trim */
@@ -159,8 +190,11 @@ static pj_bool_t simple_input(const char *title, char *buf, pj_size_t len)
     char *p;
 
     printf("%s (empty to cancel): ", title); fflush(stdout);
-    if (fgets(buf, (int)len, stdin) == NULL)
-	return PJ_FALSE;
+//    if (fgets(buf, (int)len, stdin) == NULL)
+//	return PJ_FALSE;
+		if(ui_input(buf, len) == -1) {
+			return PJ_FALSE;
+		}
 
     /* Remove trailing newlines. */
     for (p=buf; ; ++p) {
@@ -249,7 +283,7 @@ static void keystroke_help()
     puts("| Video: \"vid help\" for more info                                             |");
     puts("+-----------------------------------------------------------------------------+");
 #endif
-    puts("| SCAIP: \"scaip help\" for more info                                         |");
+    puts("| SCAIP: !h print help																												|");
     puts("+-----------------------------------------------------------------------------+");
     puts("|  q  QUIT   L  ReLoad   sleep MS   echo [0|1|txt]     n: detect NAT type     |");
     puts("+=============================================================================+");
@@ -834,13 +868,14 @@ static void ui_send_instant_message()
     }
 
     tmp = pj_str(text);
+		pj_str_t mime = pj_str("application/scaip+xml");
 
     /* Send the IM */
     if (i != -1)
-	pjsua_call_send_im(i, NULL, &tmp, NULL, NULL);
+	pjsua_call_send_im(i, &mime, &tmp, NULL, NULL);
     else {
 	pj_str_t tmp_uri = pj_str(uri);
-	pjsua_im_send(current_acc, &tmp_uri, NULL, &tmp, NULL, NULL);
+	pjsua_im_send(current_acc, &tmp_uri, &mime, &tmp, NULL, NULL);
     }
 }
 
@@ -1125,8 +1160,11 @@ static void ui_manage_codec_prio()
     puts("or empty to cancel.");
 
     printf("Codec name (\"*\" for all) and priority: ");
-    if (fgets(input, sizeof(input), stdin) == NULL)
-	return;
+//    if (fgets(input, sizeof(input), stdin) == NULL)
+//	return;
+		if(ui_input(input, sizeof(input)) == -1) {
+			return;
+		}
     if (input[0]=='\r' || input[0]=='\n') {
 	puts("Done");
 	return;
@@ -1688,9 +1726,10 @@ static void ui_adjust_volume()
 static void ui_dump_call_quality()
 {
     if (current_call != PJSUA_INVALID_ID) {
-	log_call_dump(current_call);
+			log_call_dump(current_call);
     } else {
-	PJ_LOG(3,(THIS_FILE, "No current call"));
+			//PJ_LOG(3,(THIS_FILE, "No current call"));
+			puts("No current call");
     }
 }
 
@@ -1781,7 +1820,8 @@ void legacy_main(void)
 		int error_count = 0;
 		pj_status_t status;
 
-    keystroke_help();
+
+#if UI_SOCKET
     //dp_init();
     //wait_for_connection();
 		status = start_ssap_iface();
@@ -1790,30 +1830,37 @@ void legacy_main(void)
 			teardown_ssap_iface();
 			return;
 		}
+#endif
 
 			
+    keystroke_help();
 
     // TODO: This is where you HACK IT!
     for (;;) {
 	//dp_receive(inp_raw, 80);
 	//dp_receive_block(inp_raw, 1024);
 	//receive_handler(inp_raw, 1024);
-	PJ_LOG(3, (THIS_FILE, "Ready to receive new input."));
-	status = receive(inp_raw, 1024);
+	//PJ_LOG(3, (THIS_FILE, "Ready to receive new input."));
+	//status = dp_receive(inp_raw, 1024);
 
-	if(status != PJ_SUCCESS) {
-		PJ_LOG(5, (THIS_FILE, "Something went wrong during reception."));
+	//if(status != PJ_SUCCESS) {
+
+	//if(dp_receive(inp_raw, 1024) == -1) {
+	if(ui_input(inp_raw, 1024) == -1) {
+		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
 		continue;
 	}
+
 
 	pj_str_t inp = pj_str(inp_raw);
 	pj_strtrim( &inp );
 
-	PJ_LOG(5, (THIS_FILE, "Received: %s", pj_strbuf(&inp)));
+	//PJ_LOG(5, (THIS_FILE, "Received: %s", pj_strbuf(&inp)));
 	
-	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
 	//menuin[0] = 'q';
 	//menuin[1] = '\0';
+	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
+	menuin[pj_strlen(&inp)] = '\0';
 #if 0
 	printf(">>> ");
 	fflush(stdout);
@@ -1863,15 +1910,41 @@ continue;
 				//wait_for_connection();
 				reset_ssap_connection();
 			}
+	    keystroke_help();
 			break;
 
 	case '!':
+			puts("SCAIP specific command.");
 			switch(menuin[1]) {
 				case 'h':
 					keystroke_help();
 					ui_scaip_keystroke_help();
 					break;
+
+				case '#':
+					{
+		        const int i = pjsua_call_get_count();
+		        char buffer[8];
+		        PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
+		        sprintf(buffer, "%d\n", i);
+		        dp_send(buffer, strlen(buffer));
+		      }
+					break;
+
+				case '?':
+					if(menuin[2] == '?') {
+						/* double ?? print call quality. */
+						ui_dump_call_quality();
+					}
+					else {
+						/* single ? list all calls. */
+						list_active_calls();
+					}
+					break;
+
+
 				default:
+					puts("...other scaip command type.");
 					// scaip menu
 					ui_scaip_handler(menuin +1);
 					break;
@@ -1898,6 +1971,7 @@ continue;
 	    break;
 
 	case 'a':
+			puts("Answering call.");
 	    ui_answer_call();
 	    break;
 
@@ -2073,6 +2147,9 @@ continue;
 	case 'L':   /* Restart */
 	case 'q':
 	    legacy_on_stopped(menuin[0]=='L');
+			if(menuin[0] == 'q') {
+				printf("shutdown");
+			}
 	    goto on_exit;
 
 	case 'R':
