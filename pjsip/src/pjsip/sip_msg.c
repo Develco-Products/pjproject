@@ -29,6 +29,10 @@
 #include <pj/log.h>
 #include <pjlib-util/string.h>
 
+#define THIS_FILE "sip_msg"
+static int mark_id = 0;
+#define MARK(m) PJ_LOG(3,("sip_msg", "  %s(%d): %s", __func__, mark_id, m)); mark_id++
+
 PJ_DEF_DATA(const pjsip_method) pjsip_invite_method =
 	{ PJSIP_INVITE_METHOD, { "INVITE",6 }};
 
@@ -360,13 +364,22 @@ PJ_DEF(void*)  pjsip_msg_find_hdr( const pjsip_msg *msg,
 				   pjsip_hdr_e hdr_type, const void *start)
 {
     const pjsip_hdr *hdr=(const pjsip_hdr*) start, *end=&msg->hdr;
+    PJ_LOG(3,("sip_msg", "%s looking for headers.", __func__));      // TODO: Remove
+    MARK("find hdr");
 
     if (hdr == NULL) {
 	hdr = msg->hdr.next;
     }
     for (; hdr!=end; hdr = hdr->next) {
-	if (hdr->type == hdr_type)
+	if (hdr->type == hdr_type) {
+        PJ_LOG(3,("sip_msg", "  header name: %s", hdr->name));      // TODO: Remove
+      if(strcmp(pj_strbuf(&hdr->name), "Route") == 0) {
+          char buf[1024];
+        pjsip_hdr_print_on( (void*)hdr, buf, 1024);
+        PJ_LOG(3,("sip_msg", "    contents: %s", buf));      // TODO: Remove
+      }
 	    return (void*)hdr;
+  }
     }
     return NULL;
 }
@@ -376,6 +389,7 @@ PJ_DEF(void*)  pjsip_msg_find_hdr_by_name( const pjsip_msg *msg,
 					   const void *start)
 {
     const pjsip_hdr *hdr=(const pjsip_hdr*)start, *end=&msg->hdr;
+    MARK("find hdr by name");
 
     if (hdr == NULL) {
 	hdr = msg->hdr.next;
@@ -393,6 +407,7 @@ PJ_DEF(void*)  pjsip_msg_find_hdr_by_names( const pjsip_msg *msg,
 					    const void *start)
 {
     const pjsip_hdr *hdr=(const pjsip_hdr*)start, *end=&msg->hdr;
+    MARK("find hdr by names");
 
     if (hdr == NULL) {
 	hdr = msg->hdr.next;
@@ -410,6 +425,7 @@ PJ_DEF(void*) pjsip_msg_find_remove_hdr( pjsip_msg *msg,
 				         pjsip_hdr_e hdr_type, void *start)
 {
     pjsip_hdr *hdr = (pjsip_hdr*) pjsip_msg_find_hdr(msg, hdr_type, start);
+    MARK("remove hdr");
     if (hdr) {
 	pj_list_erase(hdr);
     }
@@ -1672,6 +1688,7 @@ PJ_DEF(pjsip_rr_hdr*) pjsip_rr_hdr_init( pj_pool_t *pool,
     pjsip_rr_hdr *hdr = (pjsip_rr_hdr*) mem;
 
     PJ_UNUSED_ARG(pool);
+    MARK("init");
 
     init_hdr(hdr, PJSIP_H_RECORD_ROUTE, &routing_hdr_vptr);
     pjsip_name_addr_init(&hdr->name_addr);
@@ -1683,6 +1700,7 @@ PJ_DEF(pjsip_rr_hdr*) pjsip_rr_hdr_init( pj_pool_t *pool,
 PJ_DEF(pjsip_rr_hdr*) pjsip_rr_hdr_create( pj_pool_t *pool )
 {
     void *mem = pj_pool_alloc(pool, sizeof(pjsip_rr_hdr));
+    MARK("");
     return pjsip_rr_hdr_init(pool, mem);
 }
 
@@ -1692,6 +1710,7 @@ PJ_DEF(pjsip_route_hdr*) pjsip_route_hdr_init( pj_pool_t *pool,
     pjsip_route_hdr *hdr = (pjsip_route_hdr*) mem;
 
     PJ_UNUSED_ARG(pool);
+    MARK("init");
 
     init_hdr(hdr, PJSIP_H_ROUTE, &routing_hdr_vptr);
     pjsip_name_addr_init(&hdr->name_addr);
@@ -1702,6 +1721,7 @@ PJ_DEF(pjsip_route_hdr*) pjsip_route_hdr_init( pj_pool_t *pool,
 PJ_DEF(pjsip_route_hdr*) pjsip_route_hdr_create( pj_pool_t *pool )
 {
     void *mem = pj_pool_alloc(pool, sizeof(pjsip_route_hdr));
+    MARK("");
     return pjsip_route_hdr_init(pool, mem);
 }
 
@@ -1711,27 +1731,47 @@ PJ_DEF(pjsip_rr_hdr*) pjsip_routing_hdr_set_rr( pjsip_routing_hdr *hdr )
     hdr->name.ptr = pjsip_hdr_names[PJSIP_H_RECORD_ROUTE].name;
     hdr->name.slen = pjsip_hdr_names[PJSIP_H_RECORD_ROUTE].name_len;
     hdr->sname = hdr->name;
+    char buf[512];
+    pjsip_hdr_print_on(hdr, buf, 512);
+    MARK(buf);
     return hdr;
 }
 
 PJ_DEF(pjsip_route_hdr*) pjsip_routing_hdr_set_route( pjsip_routing_hdr *hdr )
 {
+#if 1
     hdr->type = PJSIP_H_ROUTE;
     hdr->name.ptr = pjsip_hdr_names[PJSIP_H_ROUTE].name;
     hdr->name.slen = pjsip_hdr_names[PJSIP_H_ROUTE].name_len;
     hdr->sname = hdr->name;
+    char buf[512];
+    pjsip_hdr_print_on(hdr, buf, 512);
+    MARK(buf);
+#endif
     return hdr;
 }
 
 static int pjsip_routing_hdr_print( pjsip_routing_hdr *hdr,
 				    char *buf, pj_size_t size )
 {
+#if 1
     pj_ssize_t printed;
     char *startbuf = buf;
     char *endbuf = buf + size;
     const pjsip_parser_const_t *pc = pjsip_parser_const();
     pjsip_sip_uri *sip_uri;
     pjsip_param *p;
+
+    char dp_buf[128];
+    printed = pjsip_uri_print(PJSIP_URI_IN_ROUTING_HDR, &hdr->name_addr, dp_buf, 128);
+    PJ_LOG(2,(THIS_FILE, "  hdr addr: %s", dp_buf));
+
+    const char* const evil = "<sip:sipserver.stage.iotcomms.io;transport=tls;lr>";
+    PJ_LOG(2,(THIS_FILE, "  %s == %s", dp_buf, evil));
+    if( strcmp(dp_buf, evil) == 0 ) {
+        PJ_LOG(2,(THIS_FILE, "  YOU HAVE FOUND EVIL!!!"));
+        return 0;
+    }
 
     /* Check the proprietary param 'hide', don't print this header 
      * if it exists in the route URI.
@@ -1773,12 +1813,18 @@ static int pjsip_routing_hdr_print( pjsip_routing_hdr *hdr,
     buf += printed;
 
     return (int)(buf-startbuf);
+#else
+    MARK("Print routing header.");
+    buf[0] = '\0';
+    return 0;
+#endif
 }
 
 static pjsip_routing_hdr* pjsip_routing_hdr_clone( pj_pool_t *pool,
 						   const pjsip_routing_hdr *rhs )
 {
     pjsip_routing_hdr *hdr = PJ_POOL_ALLOC_T(pool, pjsip_routing_hdr);
+    MARK("Router clone");
 
     init_hdr(hdr, rhs->type, rhs->vptr);
     pjsip_name_addr_init(&hdr->name_addr);
@@ -1790,6 +1836,7 @@ static pjsip_routing_hdr* pjsip_routing_hdr_clone( pj_pool_t *pool,
 static pjsip_routing_hdr* pjsip_routing_hdr_shallow_clone( pj_pool_t *pool,
 							   const pjsip_routing_hdr *rhs )
 {
+    MARK("Router shallow clone");
     pjsip_routing_hdr *hdr = PJ_POOL_ALLOC_T(pool, pjsip_routing_hdr);
     pj_memcpy(hdr, rhs, sizeof(*hdr));
     pjsip_param_shallow_clone( pool, &hdr->other_param, &rhs->other_param);
