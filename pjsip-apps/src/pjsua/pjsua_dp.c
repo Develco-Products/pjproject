@@ -15,12 +15,12 @@
  * - apply 'setbuf(stdout, 0)', but it is not guaranteed by the standard:
  *   http://stackoverflow.com/questions/1716296
  */
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
-  (defined (_MSC_VER) && _MSC_VER >= 1400)
-/* Variadic macro is introduced in C99; MSVC supports it in since 2005. */
-#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
-#  define puts(s) {puts(s);fflush(stdout);}
-#endif
+//#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
+//  (defined (_MSC_VER) && _MSC_VER >= 1400)
+///* Variadic macro is introduced in C99; MSVC supports it in since 2005. */
+//#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
+//#  define puts(s) {puts(s);fflush(stdout);}
+//#endif
 
 static pj_status_t send_scaip_im(const char* const sip_address);
 static pj_status_t make_scaip_call(const char* const call_data);
@@ -39,6 +39,45 @@ static enum conn_state {
   CONN_STATE_CONNECTED,
   CONN_STATE_ERROR
 } conn_state = CONN_STATE_NOT_INITIALIZED;
+
+#if UI_SOCKET
+char dp_print_buffer[1024];
+pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
+{
+	pj_status_t res = dp_receive(buf, len);
+
+	if(res == PJ_SUCCESS) {
+		return strlen(buf);
+	}
+	else {
+		PJ_PERROR(3, (THIS_FILE, res, "  (%s) reading data from socket: ", __func__));
+		return -1;
+	}
+}
+
+pj_status_t ui_outp_socket(const char* const msg, pj_ssize_t len) {
+	return dp_send(msg, len);
+}
+#endif
+
+#if UI_TERMINAL
+pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len)
+{
+	if(fgets(buf, (int)len, stdin) != NULL) {
+		return strlen(buf);
+	}
+	else {
+		return -1;
+	}
+}
+
+#if 0
+pj_status_t ui_outp_terminal(const char* const msg, pj_ssize_t len) {
+	printf(msg);
+	return PJ_SUCCESS;
+}
+#endif
+#endif
 
 
 
@@ -194,13 +233,13 @@ pj_status_t teardown_ssap_iface(void) {
   return res;
 }
 
-pj_status_t receive(char* const inp, pj_ssize_t lim) {
+pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
   pj_status_t res = pj_sock_recv(client_socket, inp, &lim, 0);
 
   switch(res) {
     case PJ_SUCCESS:
       inp[lim] = '\0';
-      PJ_LOG(3, (THIS_FILE, "recv (%d): |%s|", strlen(inp), inp));
+      PJ_LOG(5, (THIS_FILE, "recv (%d): |%s|", strlen(inp), inp));
       break;
     case PJ_STATUS_FROM_OS(OSERR_EWOULDBLOCK):
       /* fall through */
@@ -218,6 +257,11 @@ pj_status_t receive(char* const inp, pj_ssize_t lim) {
     case PJ_STATUS_FROM_OS(OSERR_ENOPROTOOPT):  
       PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
       break;
+    case PJ_STATUS_FROM_OS(ENOTSOCK):
+      PJ_PERROR(1, (THIS_FILE, res, "  %s ", __func__));
+      /* Signal for program to quit. */
+      strcpy(inp, "q\n");
+      break;
     default:
       PJ_PERROR(2, (THIS_FILE, res, "Unhandled error pj(0x%X) os(%d)", res, PJ_STATUS_TO_OS(res)));
       break;
@@ -227,7 +271,7 @@ pj_status_t receive(char* const inp, pj_ssize_t lim) {
 }
 
 int dp_send(const void* const data, pj_ssize_t len) {
-  PJ_LOG(3, (THIS_FILE, "send: |%s|", (char*) data));
+  PJ_LOG(5, (THIS_FILE, "send: |%s|", (char*) data));
   pj_status_t res = pj_sock_send(client_socket, data, &len, 0);
   if( res != PJ_SUCCESS ) {
     if(res == PJ_STATUS_FROM_OS(EPIPE)) {
@@ -250,12 +294,26 @@ void ui_scaip_handler(const char* const inp) {
 
   switch( c ) {
     case 'i':
-      PJ_LOG(5, (THIS_FILE, "Sending IM message: %s", &arg));
+      PJ_LOG(2, (THIS_FILE, "Sending IM message: %s", inp+1));
       send_scaip_im(pj_strbuf(&arg));
       break;
+
     case 'm':
+      PJ_LOG(2, (THIS_FILE, "Calling: %s", inp+1));
       make_scaip_call(pj_strbuf(&arg));
       break;
+
+    case '#':
+      {
+        const int i = pjsua_call_get_count();
+        //char buffer[8];
+        PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
+        //sprintf(buffer, "%d", i);
+        //dp_send(buffer, strlen(buffer));
+        printf("%d", i);
+      }
+      break;
+
     case '\0':
       /*Empty command. Just ignore.*/
       break;
@@ -267,19 +325,22 @@ void ui_scaip_handler(const char* const inp) {
 
 
 void ui_scaip_keystroke_help(void) {
-  const char help_text[] = \
-    "\n" \
-    "+=============================================================================+\n" \
-    "|       SCAIP commands:                                                       |\n" \
-    "|                                                                             |\n" \
-    "| !h                This help.                                                |\n" \
-    "| !i <addr> <msg>   Send SCAIP message. msg must be xml and message is sent   |\n" \
-    "|                   with mime type application/scaip+xml.                     |\n" \
-    "| !m <addr>         Call SIP addr.                                            |\n" \
+  const char help_text[] = "\n"
+    "+=============================================================================+\n" 
+    "|       SCAIP commands:                                                       |\n" 
+    "|                                                                             |\n" 
+    "| !h                This help.                                                |\n" 
+    "| !i <addr> <msg>   Send SCAIP message. msg must be xml and message is sent   |\n" 
+    "|                   with mime type application/scaip+xml.                     |\n" 
+    "| !m <addr>         Call SIP addr.                                            |\n" 
+    "| !#                Return number of active calls.                            |\n"
+    "| !?                Return active call list.                                  |\n"
+    "| !??               Return call quality.                                      |\n"
     "+=============================================================================+\n";
 
+  //printf("%s", help_text);
+  //dp_send(help_text, strlen(help_text));
   printf("%s", help_text);
-  dp_send(help_text, strlen(help_text));
 }
 
 
@@ -329,7 +390,7 @@ static pj_status_t make_scaip_call(const char* const call_data) {
   pj_cstr(&sip_address, call_data);
   pj_strtrim(&sip_address);
 
-  PJ_LOG(5, (THIS_FILE, "Verifying sip address: %s", sip_address));
+  PJ_LOG(3, (THIS_FILE, "Verifying sip address: %s", pj_strbuf(&sip_address)));
   if((res = pjsua_verify_url(pj_strbuf(&sip_address))) != PJ_SUCCESS ) {
     PJ_PERROR(3, (THIS_FILE, res, "Invalid sip address"));
     return res;
