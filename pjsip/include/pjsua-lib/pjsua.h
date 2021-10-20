@@ -3415,7 +3415,8 @@ PJ_DECL(pj_status_t) pjsua_transport_lis_start( pjsua_transport_id id,
  * Bit value used in pjsua_acc_config.reg_use_proxy field to indicate that
  * the global outbound proxy list should be added to the REGISTER request.
  */
-#define PJSUA_REG_USE_OUTBOUND_PROXY		1
+// DP edit
+#define PJSUA_REG_USE_OUTBOUND_PROXY		0       
 
 
 /**
