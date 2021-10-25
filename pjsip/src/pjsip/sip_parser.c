@@ -38,9 +38,6 @@
 
 #define THIS_FILE	    "sip_parser.c"
 
-static int mark_id = 0;
-#define PMARK(m) PJ_LOG(3,(THIS_FILE,"  %s(%d): %s", __func__, mark_id, m)); mark_id++
-
 #define ALNUM
 #define RESERVED	    ";/?:@&=+$,"
 #define MARK		    "-_.!~*'()"
@@ -506,14 +503,11 @@ static pj_status_t init_parser()
                                         &parse_hdr_min_expires);
     PJ_ASSERT_RETURN(status == PJ_SUCCESS, status);
 
-    PMARK("Registering parse record route handler");
     status = pjsip_register_hdr_parser( "Record-Route", NULL, &parse_hdr_rr);
     PJ_ASSERT_RETURN(status == PJ_SUCCESS, status);
 
-    PMARK("Registering parse route handler");
     status = pjsip_register_hdr_parser( "Route", NULL, &parse_hdr_route);
     PJ_ASSERT_RETURN(status == PJ_SUCCESS, status);
-    PMARK("  parse route handler registered.");
 
     status = pjsip_register_hdr_parser( "Require", NULL, &parse_hdr_require);
     PJ_ASSERT_RETURN(status == PJ_SUCCESS, status);
@@ -612,8 +606,6 @@ static pj_status_t int_register_parser( const char *name,
 {
     unsigned	pos;
     handler_rec rec;
-
-    PMARK("");
 
     if (handler_count >= PJ_ARRAY_SIZE(handler)) {
 	pj_assert(!"Too many handlers!");
@@ -715,8 +707,6 @@ static pjsip_parse_hdr_func * find_handler_imp(pj_uint32_t  hash,
     handler_rec *first;
     int		 comp;
     unsigned	 n;
-
-    PMARK("");
 
     /* Binary search for the handler. */
     comp = -1;
@@ -1083,8 +1073,6 @@ parse_headers:
 		PJ_THROW(PJSIP_SYN_ERR_EXCEPTION);
 	    }
       
-        PMARK("");
-	    
 	    /* Find handler. */
 	    func = find_handler(&hname);
 	    
@@ -2283,8 +2271,6 @@ static pjsip_hdr* parse_hdr_route( pjsip_parse_ctx *ctx )
     pjsip_route_hdr *first = NULL;
     pj_scanner *scanner = ctx->scanner;
 
-    PMARK("");
-
     do {
 	pjsip_route_hdr *hdr = pjsip_route_hdr_create(ctx->pool);
 	if (!first) {
@@ -2449,7 +2435,6 @@ retry_parse:
 		PJ_THROW(PJSIP_SYN_ERR_EXCEPTION);
 	    }
 
-    PMARK("");
 	    /* Find handler. */
 	    func = find_handler(&hname);
 
