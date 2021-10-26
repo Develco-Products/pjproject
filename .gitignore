@@ -69,3 +69,8 @@ tests/pjsua/wavs/tmp*.wav
 tests/pjsua/tools/cmp_wav
 tests/pjsua/tools/cmp_wav.dSYM
 tests/pjsua/logs
+
+# local stuff
+start_pjsua.sh
+pjsua.log
+
