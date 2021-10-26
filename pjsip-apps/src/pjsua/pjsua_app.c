@@ -775,7 +775,8 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 		//dp_send(msg_buffer, e);
 		dp_send(pj_strbuf(text), pj_strlen(text));
 #endif
-		printf("%s", text);
+		//printf("%s", text);
+		data_output("%s", text);
 #endif
 }
 

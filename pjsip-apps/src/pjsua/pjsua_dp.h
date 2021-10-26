@@ -1,9 +1,10 @@
 #ifndef _PJSUA_DP_H_
 #define _PJSUA_DP_H_
 
-//#define MANUAL_SETTINGS
-//#define UI_SOCKET (1)
-//#define UI_TERMINAL (0)
+#define MANUAL_SETTINGS
+#define UI_SOCKET (1)
+#define UI_TERMINAL (0)
+#define ENABLE_PJSUA_SSAP (1)
 
 #define DEFAULT_DP_PORT (8890)
 #if !defined(MANUAL_SETTINGS)
@@ -57,12 +58,12 @@ extern char dp_print_buffer[1024];
 //#		error ssap enabled
 #		define printf(...) while(0)
 #		define puts(s) while(0)
-#		define data_print(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	else
 //#		error ssap disabled
 # 	define printf(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 # 	define puts(s) {sprintf(dp_print_buffer, "%s\n", s);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
-#		define data_print(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	endif
 
 #	define ui_input(buffer, buffer_length) ui_input_socket(buffer, buffer_length)

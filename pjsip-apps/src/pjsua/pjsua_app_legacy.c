@@ -1851,6 +1851,15 @@ void legacy_main(void)
 		continue;
 	}
 
+#if 0
+	switch(ui_input(inp_raw, 1024)) {
+		case PJ_SUCCESS:
+			/* It's all good. Do nothing. */
+			break;
+#endif
+
+
+
 
 	pj_str_t inp = pj_str(inp_raw);
 	pj_strtrim( &inp );

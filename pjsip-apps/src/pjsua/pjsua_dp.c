@@ -263,6 +263,7 @@ pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
       PJ_PERROR(1, (THIS_FILE, res, "  %s ", __func__));
       /* Signal for program to quit. */
       strcpy(inp, "q\n");
+      res = PJ_SUCCESS;
       break;
     default:
       PJ_PERROR(2, (THIS_FILE, res, "Unhandled error pj(0x%X) os(%d)", res, PJ_STATUS_TO_OS(res)));
@@ -313,7 +314,7 @@ void ui_scaip_handler(const char* const inp) {
         //sprintf(buffer, "%d", i);
         //dp_send(buffer, strlen(buffer));
         //printf("%d", i);
-        data_print("%d", i);
+        data_output("%d", i);
       }
       break;
 
