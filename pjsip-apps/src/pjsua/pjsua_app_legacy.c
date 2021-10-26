@@ -126,8 +126,6 @@ static void ui_input_url(const char *title, char *buf, pj_size_t len,
 			return;
 		}
 
-//    if (fgets(buf, (int)len, stdin) == NULL)
-//	return;
     len = strlen(buf);
 
     /* Left trim */
@@ -190,8 +188,6 @@ static pj_bool_t simple_input(const char *title, char *buf, pj_size_t len)
     char *p;
 
     printf("%s (empty to cancel): ", title); fflush(stdout);
-//    if (fgets(buf, (int)len, stdin) == NULL)
-//	return PJ_FALSE;
 		if(ui_input(buf, len) == -1) {
 			return PJ_FALSE;
 		}
@@ -259,7 +255,6 @@ static void keystroke_help()
 
     print_buddy_list();
 
-    //puts("Commands:");
     puts("+=============================================================================+");
     puts("|       Call Commands:         |   Buddy, IM & Presence:  |     Account:      |");
     puts("|                              |                          |                   |");
@@ -1160,8 +1155,6 @@ static void ui_manage_codec_prio()
     puts("or empty to cancel.");
 
     printf("Codec name (\"*\" for all) and priority: ");
-//    if (fgets(input, sizeof(input), stdin) == NULL)
-//	return;
 		if(ui_input(input, sizeof(input)) == -1) {
 			return;
 		}
@@ -1837,15 +1830,7 @@ void legacy_main(void)
 
     // TODO: This is where you HACK IT!
     for (;;) {
-	//dp_receive(inp_raw, 80);
-	//dp_receive_block(inp_raw, 1024);
-	//receive_handler(inp_raw, 1024);
-	//PJ_LOG(3, (THIS_FILE, "Ready to receive new input."));
-	//status = dp_receive(inp_raw, 1024);
 
-	//if(status != PJ_SUCCESS) {
-
-	//if(dp_receive(inp_raw, 1024) == -1) {
 	if(ui_input(inp_raw, 1024) == -1) {
 		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
 		continue;
@@ -1854,39 +1839,8 @@ void legacy_main(void)
 	pj_str_t inp = pj_str(inp_raw);
 	pj_strtrim( &inp );
 
-	//PJ_LOG(5, (THIS_FILE, "Received: %s", pj_strbuf(&inp)));
-	
-	//menuin[0] = 'q';
-	//menuin[1] = '\0';
 	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
 	menuin[pj_strlen(&inp)] = '\0';
-#if 0
-	printf(">>> ");
-	fflush(stdout);
-
-	if (fgets(menuin, sizeof(menuin), stdin) == NULL) {
-	    /*
-	     * Be friendly to users who redirect commands into
-	     * program, when file ends, resume with kbd.
-	     * If exit is desired end script with q for quit
-	     */
- 	    /* Reopen stdin/stdout/stderr to /dev/console */
-#if ((defined(PJ_WIN32) && PJ_WIN32!=0) || \
-     (defined(PJ_WIN64) && PJ_WIN64!=0)) && \
-  (!defined(PJ_WIN32_WINCE) || PJ_WIN32_WINCE==0)
-	    if (freopen ("CONIN$", "r", stdin) == NULL) {
-#else
-	    if (1) {
-#endif
-		puts("Cannot switch back to console from file redirection");
-		menuin[0] = 'q';
-		menuin[1] = '\0';
-	    } else {
-		puts("Switched back to console from file redirection");
-continue;
-	    }
-	}
-#endif
 
 	if (cmd_echo) {
 	    printf("%s", menuin);
@@ -1901,12 +1855,8 @@ continue;
 	case '\0':
 			if( error_count++ > 5 ) {
 				// Server may have close connection.
-				//PJ_LOG(5, (THIS_FILE, "Closing down socket."));
-				//teardown_server();
 				PJ_LOG(5, (THIS_FILE, "Restarting socket."));
 				error_count = 0;
-				//dp_init();
-				//wait_for_connection();
 				reset_ssap_connection();
 			}
 	    keystroke_help();

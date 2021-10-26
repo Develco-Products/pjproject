@@ -54,12 +54,6 @@ pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
 		return -1;
 	}
 }
-
-#if 0
-pj_status_t ui_outp_socket(const char* const msg, pj_ssize_t len) {
-	return dp_send(msg, len);
-}
-#endif
 #endif
 
 #if UI_TERMINAL
@@ -72,13 +66,6 @@ pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len)
 		return -1;
 	}
 }
-
-#if 0
-pj_status_t ui_outp_terminal(const char* const msg, pj_ssize_t len) {
-	printf(msg);
-	return PJ_SUCCESS;
-}
-#endif
 #endif
 
 
@@ -274,7 +261,8 @@ pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
 }
 
 int dp_send(const void* const data, pj_ssize_t len) {
-  PJ_LOG(5, (THIS_FILE, "send: |%s|", (char*) data));
+  LOG_DATA_OUTPUT();
+
   pj_status_t res = pj_sock_send(client_socket, data, &len, 0);
   if( res != PJ_SUCCESS ) {
     if(res == PJ_STATUS_FROM_OS(EPIPE)) {
@@ -309,11 +297,7 @@ void ui_scaip_handler(const char* const inp) {
     case '#':
       {
         const int i = pjsua_call_get_count();
-        //char buffer[8];
         PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
-        //sprintf(buffer, "%d", i);
-        //dp_send(buffer, strlen(buffer));
-        //printf("%d", i);
         data_output("%d", i);
       }
       break;
@@ -342,8 +326,6 @@ void ui_scaip_keystroke_help(void) {
     "| !??               Return call quality.                                      |\n"
     "+=============================================================================+\n";
 
-  //printf("%s", help_text);
-  //dp_send(help_text, strlen(help_text));
   printf("%s", help_text);
 }
 

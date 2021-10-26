@@ -6,6 +6,10 @@
 #define UI_TERMINAL (0)
 #define ENABLE_PJSUA_SSAP (1)
 
+/* Log data output. Value > 0 specifies log level. 
+ * 0 disables. */
+#define DATA_OUTPUT_LOG_LEVEL  (3)
+
 #define DEFAULT_DP_PORT (8890)
 #if !defined(MANUAL_SETTINGS)
 #	if defined(__arm__)
@@ -46,8 +50,6 @@ pj_status_t reset_ssap_iface(void);
 pj_status_t teardown_ssap_iface(void);
 
 pj_status_t dp_receive(char* const inp, pj_ssize_t lim);
-//pj_status_t dp_receive_block(char* const inp, pj_ssize_t lim);
-//pj_status_t receive_handler(char* const inp, pj_ssize_t lim);
 int dp_send(const void* const data, pj_ssize_t len);
 void ui_scaip_handler(const char* const inp);
 void ui_scaip_keystroke_help(void);
@@ -55,12 +57,10 @@ void ui_scaip_keystroke_help(void);
 #if UI_SOCKET
 extern char dp_print_buffer[1024];
 #	if ENABLE_PJSUA_SSAP
-//#		error ssap enabled
 #		define printf(...) while(0)
 #		define puts(s) while(0)
 #		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	else
-//#		error ssap disabled
 # 	define printf(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 # 	define puts(s) {sprintf(dp_print_buffer, "%s\n", s);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
@@ -68,7 +68,6 @@ extern char dp_print_buffer[1024];
 
 #	define ui_input(buffer, buffer_length) ui_input_socket(buffer, buffer_length)
 pj_ssize_t ui_input_socket(char* const buf, pj_size_t len);
-//pj_status_t ui_outp_socket(const char* const msg, pj_ssize_t len);
 #elif UI_TERMINAL
 # define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
 # define puts(s) {puts(s);fflush(stdout);}
@@ -76,6 +75,24 @@ pj_ssize_t ui_input_socket(char* const buf, pj_size_t len);
 pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len);
 #else
 # error "You must specify where UI i/o is sent."
+#endif
+
+#if DATA_OUTPUT_LOG_LEVEL == 0
+# define LOG_DATA_OUTPUT() 
+#elif DATA_OUTPUT_LOG_LEVEL == 1
+# define LOG_DATA_OUTPUT() PJ_LOG(1,(THIS_FILE,"%s",dp_print_buffer));
+#elif DATA_OUTPUT_LOG_LEVEL == 2
+# define LOG_DATA_OUTPUT() PJ_LOG(2,(THIS_FILE,"%s",dp_print_buffer));
+#elif DATA_OUTPUT_LOG_LEVEL == 3
+# define LOG_DATA_OUTPUT() PJ_LOG(3,(THIS_FILE,"%s",dp_print_buffer));
+#elif DATA_OUTPUT_LOG_LEVEL == 4
+# define LOG_DATA_OUTPUT() PJ_LOG(4,(THIS_FILE,"%s",dp_print_buffer));
+#elif DATA_OUTPUT_LOG_LEVEL == 5
+# define LOG_DATA_OUTPUT() PJ_LOG(5,(THIS_FILE,"%s",dp_print_buffer));
+#elif DATA_OUTPUT_LOG_LEVEL == 6
+# define LOG_DATA_OUTPUT() PJ_LOG(6,(THIS_FILE,"%s",dp_print_buffer));
+#else
+# error data log level invalid.
 #endif
 
 #endif

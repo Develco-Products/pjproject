@@ -339,10 +339,8 @@ static void on_incoming_call(pjsua_acc_id acc_id, pjsua_call_id call_id,
 		     (app_config.vid.vid_cnt? "disable":"enable"));
 	}
 #endif
-#if 0
-	char buffer[1024];
-	sprintf(buffer, 
-		  "Incoming call for account %d!\n"
+
+	data_output("Incoming call for account %d!\n"
 		  "Media count: %d audio & %d video\n"
 		  "%s"
 		  "From: %.*s\n"
@@ -358,45 +356,6 @@ static void on_incoming_call(pjsua_acc_id acc_id, pjsua_call_id call_id,
 		  call_info.local_info.ptr,
 		  (app_config.use_cli?"ca a":"a"),
 		  (app_config.use_cli?"g":"h"));
-	dp_send(buffer, strlen(buffer));
-	PJ_LOG(3, (THIS_FILE, buffer));
-#else
-	printf("Incoming call for account %d!\n"
-		  "Media count: %d audio & %d video\n"
-		  "%s"
-		  "From: %.*s\n"
-		  "To: %.*s\n"
-		  "Press %s to answer or %s to reject call",
-		  acc_id,
-		  call_info.rem_aud_cnt,
-		  call_info.rem_vid_cnt,
-		  notif_st,
-		  (int)call_info.remote_info.slen,
-		  call_info.remote_info.ptr,
-		  (int)call_info.local_info.slen,
-		  call_info.local_info.ptr,
-		  (app_config.use_cli?"ca a":"a"),
-		  (app_config.use_cli?"g":"h"));
-#endif
-#if 0
-	PJ_LOG(3,(THIS_FILE,
-		  "Incoming call for account %d!\n"
-		  "Media count: %d audio & %d video\n"
-		  "%s"
-		  "From: %.*s\n"
-		  "To: %.*s\n"
-		  "Press %s to answer or %s to reject call",
-		  acc_id,
-		  call_info.rem_aud_cnt,
-		  call_info.rem_vid_cnt,
-		  notif_st,
-		  (int)call_info.remote_info.slen,
-		  call_info.remote_info.ptr,
-		  (int)call_info.local_info.slen,
-		  call_info.local_info.ptr,
-		  (app_config.use_cli?"ca a":"a"),
-		  (app_config.use_cli?"g":"h")));
-#endif
     }
 }
 
@@ -754,30 +713,7 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 	      (int)mime_type->slen, mime_type->ptr));
 
 		/* Compile data send back to host. */
-#if 0
-		char msg_buffer[1024];
-		pj_ssize_t offset = pj_strlen(from);
-		pj_memcpy(msg_buffer, 					pj_strbuf(from), pj_strlen(from));
-		pj_memcpy(msg_buffer + offset,	pj_strbuf(text), pj_strlen(text));
-		offset += pj_strlen(text);
-		pj_memcpy(msg_buffer + offset,	pj_strbuf(mime_type), pj_strlen(mime_type));
-		offset += pj_strlen(mime_type);
-		msg_buffer[offset] = '\0';
-		PJ_LOG(5,(THIS_FILE, "Sending buffer: %s", msg_buffer));
-
-		dp_send(msg_buffer, offset +1);
-#else
-#if 0
-		char msg_buffer[1024];
-		pj_ssize_t e = pj_strlen(text);
-		pj_memcpy(msg_buffer, pj_strbuf(text), e);
-		msg_buffer[e] = '\0';
-		//dp_send(msg_buffer, e);
-		dp_send(pj_strbuf(text), pj_strlen(text));
-#endif
-		//printf("%s", text);
 		data_output("%s", pj_strbuf(text));
-#endif
 }
 
 
