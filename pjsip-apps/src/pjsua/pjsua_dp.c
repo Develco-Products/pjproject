@@ -55,9 +55,11 @@ pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
 	}
 }
 
+#if 0
 pj_status_t ui_outp_socket(const char* const msg, pj_ssize_t len) {
 	return dp_send(msg, len);
 }
+#endif
 #endif
 
 #if UI_TERMINAL
@@ -310,7 +312,8 @@ void ui_scaip_handler(const char* const inp) {
         PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
         //sprintf(buffer, "%d", i);
         //dp_send(buffer, strlen(buffer));
-        printf("%d", i);
+        //printf("%d", i);
+        data_print("%d", i);
       }
       break;
 
