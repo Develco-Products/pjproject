@@ -116,12 +116,12 @@ PJ_DEF(pj_status_t) pjmedia_aud_driver_init(unsigned drv_idx,
     /* enabling this will cause pjsua-lib initialization to fail when there
      * is no sound device installed in the system, even when pjsua has been
      * run with --null-audio
-     */
+     * /
     if (dev_cnt == 0) {
 	f->op->destroy(f);
 	return PJMEDIA_EAUD_NODEV;
     }
-    //*/
+    */
 
     PJ_LOG(3, (THIS_FILE, "============ Audio devices ============"));  // TODO: Remove when not needed.
     /* Fill in default devices */
