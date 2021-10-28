@@ -261,7 +261,7 @@ pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
 }
 
 int dp_send(const void* const data, pj_ssize_t len) {
-  LOG_DATA_OUTPUT();
+  LOG_DATA_OUTPUT(data);
 
   pj_status_t res = pj_sock_send(client_socket, data, &len, 0);
   if( res != PJ_SUCCESS ) {
