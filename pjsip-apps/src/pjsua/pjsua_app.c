@@ -18,7 +18,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
  */
 #include "pjsua_app.h"
-#include "pjsua_dp.h"
+#include "pjsua_ssapcomm.h"
 
 #define THIS_FILE	"pjsua_app.c"
 
@@ -712,8 +712,10 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 	      (int)text->slen, text->ptr,
 	      (int)mime_type->slen, mime_type->ptr));
 
+		//data_output("%s", pj_strbuf(text));
+		//
 		/* Compile data send back to host. */
-		data_output("%s", pj_strbuf(text));
+		ssapmsg_scaipmsg_send(pj_strbuf(from), pj_strbuf(text));
 }
 
 

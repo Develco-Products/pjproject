@@ -19,7 +19,7 @@
  */
 
 #include "pjsua_app_common.h"
-#include "pjsua_dp.h"
+#include "pjsua_ssapcomm.h"
 
 #define THIS_FILE	"pjsua_app_cli.c"
 

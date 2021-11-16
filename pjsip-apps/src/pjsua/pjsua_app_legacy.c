@@ -21,7 +21,9 @@
 #include <pjsua-lib/pjsua.h>
 #include "pjsua_app_common.h"
 
-#include "pjsua_dp.h"
+#include "pjsua_ssapcomm.h"
+#include "pjsua_ssapmsg.h"
+#include "pjsua_app_scaip.h"
 
 #define THIS_FILE	"pjsua_app_legacy.c"
 
@@ -37,6 +39,10 @@
 //#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
 //#  define puts(s) {puts(s);fflush(stdout);}
 //#endif
+
+static pj_status_t send_scaip_im_str(const char* const sip_address);
+static pj_status_t send_scaip_im(const struct ssapmsg_iface* const msg);
+static pj_status_t make_scaip_call(const char* const call_data);
 
 static pj_bool_t	cmd_echo;
 
@@ -279,6 +285,13 @@ static void keystroke_help()
     puts("+-----------------------------------------------------------------------------+");
 #endif
     puts("| SCAIP: !h print help																												|");
+    puts("| !h                This help.                                                |"); 
+    puts("| !i <addr> <msg>   Send SCAIP message. msg must be xml and message is sent   |"); 
+    puts("|                   with mime type application/scaip+xml.                     |"); 
+    puts("| !m <addr>         Call SIP addr.                                            |"); 
+    puts("| !#                Return number of active calls.                            |");
+    puts("| !?                Return active call list.                                  |");
+    puts("| !??               Return call quality.                                      |");
     puts("+-----------------------------------------------------------------------------+");
     puts("|  q  QUIT   L  ReLoad   sleep MS   echo [0|1|txt]     n: detect NAT type     |");
     puts("+=============================================================================+");
@@ -1831,12 +1844,41 @@ void legacy_main(void)
     // TODO: This is where you HACK IT!
     for (;;) {
 
-	if(ui_input(inp_raw, 1024) == -1) {
+	const pj_ssize_t inp_length = ui_input(inp_raw, 1024);
+	if(inp_length == -1) {
 		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
 		continue;
 	}
 
+#if ENABLE_PJSUA_SSAP
+	//union ssapmsg_payload inp_data;
+	struct ssapmsg_iface msg;
+
+	ssapmsg_print((struct ssapmsg_datagram*) inp_raw);
+
+	pj_status_t result = ssapmsg_parse(&msg, inp_raw, inp_length);
+	if(result == PJ_SUCCESS) {
+		//const char* res = ui_scaip_handler(inp_type, &inp_data);
+		const char* res = ui_scaip_handler(&msg);
+		if(res != NULL) {
+			const uint16_t l = strlen(res);
+			pj_memcpy(inp_raw, res, l +1);
+			//inp_raw[l] = '\0';
+			PJ_LOG(3, (THIS_FILE, "Input received in legacy app: %s", inp_raw));
+		}
+		else {
+			continue;
+		}
+	}
+	else {
+		PJ_LOG(3, (THIS_FILE, "Failure parsing ssapmsg with result: 0x%X", result));
+		// Kill program.
+		strcpy(inp_raw, "q\n");
+	}
+#endif
+
 	pj_str_t inp = pj_str(inp_raw);
+
 	pj_strtrim( &inp );
 
 	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
@@ -1859,28 +1901,21 @@ void legacy_main(void)
 				error_count = 0;
 				reset_ssap_connection();
 			}
-	    keystroke_help();
+	  	keystroke_help();
 			break;
 
 	case '!':
 			puts("SCAIP specific command.");
 			switch(menuin[1]) {
-				case 'h':
-					keystroke_help();
-					ui_scaip_keystroke_help();
-					break;
+			case '#':
+			  	{
+			  	  const int i = pjsua_call_get_count();
+			  	  PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
+			  	  data_output("%d", i);
+			  	}
+			  	break;
 
-				case '#':
-					{
-		        const int i = pjsua_call_get_count();
-		        char buffer[8];
-		        PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
-		        sprintf(buffer, "%d\n", i);
-		        dp_send(buffer, strlen(buffer));
-		      }
-					break;
-
-				case '?':
+			case '?':
 					if(menuin[2] == '?') {
 						/* double ?? print call quality. */
 						ui_dump_call_quality();
@@ -1890,12 +1925,12 @@ void legacy_main(void)
 						list_active_calls();
 					}
 					break;
+			case 'h':
+					keystroke_help();
+					break;
 
-
-				default:
-					puts("...other scaip command type.");
-					// scaip menu
-					ui_scaip_handler(menuin +1);
+			default:
+					ui_handle_scaip_cmd(menuin +1);
 					break;
 			}
 			break;

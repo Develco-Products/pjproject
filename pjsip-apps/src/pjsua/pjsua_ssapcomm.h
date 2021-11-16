@@ -1,5 +1,5 @@
-#ifndef _PJSUA_DP_H_
-#define _PJSUA_DP_H_
+#ifndef _PJSUA_SSAPCOMM_H_
+#define _PJSUA_SSAPCOMM_H_
 
 #define MANUAL_SETTINGS
 #define UI_SOCKET (1)
@@ -41,6 +41,7 @@
 #endif
 
 #include <pj/types.h>
+#include "pjsua_ssapmsg.h"
 
 pj_status_t start_ssap_iface(void);
 pj_status_t update_ssap_iface(void);
@@ -49,9 +50,14 @@ pj_status_t reset_ssap_connection(void);
 pj_status_t reset_ssap_iface(void);
 pj_status_t teardown_ssap_iface(void);
 
-pj_status_t dp_receive(char* const inp, pj_ssize_t lim);
-int dp_send(const void* const data, pj_ssize_t len);
-void ui_scaip_handler(const char* const inp);
+pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim);
+pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len);
+void ssapsock_send_blind(const void* const data, pj_ssize_t len);
+#if ENABLE_PJSUA_SSAP
+//const char* ui_scaip_handler(const enum ssapmsg_type msg_type, const union ssapmsg_payload* const data);
+const char* ui_scaip_handler(const struct ssapmsg_iface* const msg);
+#endif
+void ui_scaip_handler_str_input(const char* const inp);
 void ui_scaip_keystroke_help(void);
 
 #if UI_SOCKET
@@ -59,11 +65,11 @@ extern char dp_print_buffer[1024];
 #	if ENABLE_PJSUA_SSAP
 #		define printf(...) while(0)
 #		define puts(s) while(0)
-#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	else
-# 	define printf(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
-# 	define puts(s) {sprintf(dp_print_buffer, "%s\n", s);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
-#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);dp_send(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+# 	define printf(...) {sprintf(dp_print_buffer, __VA_ARGS__);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+# 	define puts(s) {sprintf(dp_print_buffer, "%s\n", s);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
+#		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	endif
 
 #	define ui_input(buffer, buffer_length) ui_input_socket(buffer, buffer_length)
@@ -95,5 +101,5 @@ pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len);
 # error data log level invalid.
 #endif
 
-#endif
+#endif /* _PJSUA_SSAPCOMM_H_ */
 

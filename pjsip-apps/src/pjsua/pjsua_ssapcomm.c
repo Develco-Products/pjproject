@@ -2,13 +2,15 @@
 #include <pjsua-lib/pjsua.h>
 #include "pjsua_app_common.h"
 
-#include "pjsua_dp.h"
+#include "pjsua_ssapcomm.h"
 #include "pjlib.h"
 #include "pjsua_app.h"
 #include <string.h>
 #include "pj/types.h"
+//#include "pjsua_ssapmsg.h"
+#include "pjsua_app_scaip.h"
 
-#define THIS_FILE "pjsua_dp.c"
+#define THIS_FILE "pjsua_dp"
 
 /* An attempt to avoid stdout buffering for python tests:
  * - call 'fflush(stdout)' after each call to 'printf()/puts()'
@@ -21,9 +23,6 @@
 //#  define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
 //#  define puts(s) {puts(s);fflush(stdout);}
 //#endif
-
-static pj_status_t send_scaip_im(const char* const sip_address);
-static pj_status_t make_scaip_call(const char* const call_data);
 
 /* socket descriptors */
 static pj_sock_t host_socket;
@@ -40,14 +39,15 @@ static enum conn_state {
   CONN_STATE_ERROR
 } conn_state = CONN_STATE_NOT_INITIALIZED;
 
+
 #if UI_SOCKET
 char dp_print_buffer[1024];
 pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
 {
-	pj_status_t res = dp_receive(buf, len);
+	pj_status_t res = ssapsock_receive(buf, &len);
 
 	if(res == PJ_SUCCESS) {
-		return strlen(buf);
+		return len;
 	}
 	else {
 		PJ_PERROR(3, (THIS_FILE, res, "  (%s) reading data from socket: ", __func__));
@@ -69,12 +69,10 @@ pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len)
 #endif
 
 
-
-
-
 pj_status_t start_ssap_iface(void) {
   return update_ssap_iface();
 }
+
 
 pj_status_t update_ssap_iface(void) {
   pj_status_t res = PJ_SUCCESS;
@@ -222,13 +220,34 @@ pj_status_t teardown_ssap_iface(void) {
   return res;
 }
 
-pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
-  pj_status_t res = pj_sock_recv(client_socket, inp, &lim, 0);
+pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
+  pj_status_t res = pj_sock_recv(client_socket, inp, lim, 0);
+  int i;
 
   switch(res) {
     case PJ_SUCCESS:
-      inp[lim] = '\0';
-      PJ_LOG(5, (THIS_FILE, "recv (%d): |%s|", strlen(inp), inp));
+      inp[*lim] = '\0';
+      PJ_LOG(3, (THIS_FILE, "received %d bytes", *lim));
+      for(i=0; i<*lim; i+=16) {
+        PJ_LOG(3, (THIS_FILE, "%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+              (i +0 <*lim ? (uint8_t)inp[i +0]  : 255),
+              (i +1 <*lim ? (uint8_t)inp[i +1]  : 255),
+              (i +2 <*lim ? (uint8_t)inp[i +2]  : 255),
+              (i +3 <*lim ? (uint8_t)inp[i +3]  : 255),
+              (i +4 <*lim ? (uint8_t)inp[i +4]  : 255),
+              (i +5 <*lim ? (uint8_t)inp[i +5]  : 255),
+              (i +6 <*lim ? (uint8_t)inp[i +6]  : 255),
+              (i +7 <*lim ? (uint8_t)inp[i +7]  : 255),
+              (i +8 <*lim ? (uint8_t)inp[i +8]  : 255),
+              (i +9 <*lim ? (uint8_t)inp[i +9]  : 255),
+              (i +10<*lim ? (uint8_t)inp[i +10] : 255),
+              (i +11<*lim ? (uint8_t)inp[i +11] : 255),
+              (i +12<*lim ? (uint8_t)inp[i +12] : 255),
+              (i +13<*lim ? (uint8_t)inp[i +13] : 255),
+              (i +14<*lim ? (uint8_t)inp[i +14] : 255),
+              (i +15<*lim ? (uint8_t)inp[i +15] : 255)
+              ));
+      }
       break;
     case PJ_STATUS_FROM_OS(OSERR_EWOULDBLOCK):
       /* fall through */
@@ -244,13 +263,8 @@ pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
       break;
     case PJ_STATUS_FROM_OS(OSERR_EAFNOSUPPORT):
     case PJ_STATUS_FROM_OS(OSERR_ENOPROTOOPT):  
-      PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
-      break;
     case PJ_STATUS_FROM_OS(ENOTSOCK):
-      PJ_PERROR(1, (THIS_FILE, res, "  %s ", __func__));
-      /* Signal for program to quit. */
-      strcpy(inp, "q\n");
-      res = PJ_SUCCESS;
+      PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
       break;
     default:
       PJ_PERROR(2, (THIS_FILE, res, "Unhandled error pj(0x%X) os(%d)", res, PJ_STATUS_TO_OS(res)));
@@ -260,11 +274,15 @@ pj_status_t dp_receive(char* const inp, pj_ssize_t lim) {
   return res;
 }
 
-int dp_send(const void* const data, pj_ssize_t len) {
+pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
   LOG_DATA_OUTPUT();
 
-  pj_status_t res = pj_sock_send(client_socket, data, &len, 0);
-  if( res != PJ_SUCCESS ) {
+  pj_status_t res = pj_sock_send(client_socket, data, len, 0);
+  if( res == PJ_SUCCESS ) {
+    /* Set pending response token. */
+    //ssapmsg_response_pending.ref
+  }
+  else {
     if(res == PJ_STATUS_FROM_OS(EPIPE)) {
       PJ_PERROR(3, (THIS_FILE, res, "Pipe error (0x%X).", res));
       /* Connection has been dropped. Reset server. */
@@ -277,114 +295,10 @@ int dp_send(const void* const data, pj_ssize_t len) {
   return res;
 }
 
-void ui_scaip_handler(const char* const inp) {
-  char c = inp[0];
-  pj_str_t arg;
-  pj_cstr(&arg, inp +1);
-  pj_strtrim( &arg );
-
-  switch( c ) {
-    case 'i':
-      PJ_LOG(2, (THIS_FILE, "Sending IM message: %s", inp+1));
-      send_scaip_im(pj_strbuf(&arg));
-      break;
-
-    case 'm':
-      PJ_LOG(2, (THIS_FILE, "Calling: %s", inp+1));
-      make_scaip_call(pj_strbuf(&arg));
-      break;
-
-    case '#':
-      {
-        const int i = pjsua_call_get_count();
-        PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
-        data_output("%d", i);
-      }
-      break;
-
-    case '\0':
-      /*Empty command. Just ignore.*/
-      break;
-    default:
-      PJ_LOG(5, (THIS_FILE, "Unknown scaip command: %c", c));
-      break;
-  }
+/* Just throw something out there and not care how it went. */
+void ssapsock_send_blind(const void* const data, pj_ssize_t len) {
+  (void) ssapsock_send(data, &len);
 }
 
 
-void ui_scaip_keystroke_help(void) {
-  const char help_text[] = "\n"
-    "+=============================================================================+\n" 
-    "|       SCAIP commands:                                                       |\n" 
-    "|                                                                             |\n" 
-    "| !h                This help.                                                |\n" 
-    "| !i <addr> <msg>   Send SCAIP message. msg must be xml and message is sent   |\n" 
-    "|                   with mime type application/scaip+xml.                     |\n" 
-    "| !m <addr>         Call SIP addr.                                            |\n" 
-    "| !#                Return number of active calls.                            |\n"
-    "| !?                Return active call list.                                  |\n"
-    "| !??               Return call quality.                                      |\n"
-    "+=============================================================================+\n";
-
-  printf("%s", help_text);
-}
-
-
-
-static pj_status_t send_scaip_im(const char* const scaip_msg) {
-  char recv_buffer[1024];
-  int res;
-  pj_str_t mime = pj_str("application/scaip+xml");
-
-  pj_str_t sip_address;
-  pj_str_t sip_msg;
-  int c;
-
-  pj_str_t msg;
-  pj_cstr(&msg, scaip_msg);
-  pj_str_t delim = pj_str(" ");
-  pj_ssize_t e = pj_strlen(&msg);
-  pj_ssize_t idx = 0;
-
-  idx = pj_strtok(&msg, &delim, &sip_address, idx);
-  idx += pj_strlen(&sip_address);
-  idx = pj_strtok(&msg, &delim, &sip_msg, idx);
-
-  char sip_address_buffer[128];
-  pj_memcpy( sip_address_buffer, pj_strbuf(&sip_address), pj_strlen(&sip_address) );
-  sip_address_buffer[pj_strlen(&sip_address)] = '\0';
-  
-  PJ_LOG(5, (THIS_FILE, "Verifying sip address: %s", sip_address));
-  if((res = pjsua_verify_url(sip_address_buffer)) != PJ_SUCCESS ) {
-    PJ_PERROR(3, (THIS_FILE, res, "Invalid sip address"));
-    return res;
-  }
-  pj_strset2( &sip_address, sip_address_buffer );
-
-  PJ_LOG(5, (THIS_FILE, "sip address: %s", sip_address));
-  PJ_LOG(5, (THIS_FILE, "sip message: %s", sip_msg));
-
-	pjsua_im_send(current_acc, &sip_address, &mime, &sip_msg, NULL, NULL);
-
-  return PJ_SUCCESS;
-}
-
-static pj_status_t make_scaip_call(const char* const call_data) {
-  pj_status_t res;
-  pj_str_t sip_address;
-
-  pj_cstr(&sip_address, call_data);
-  pj_strtrim(&sip_address);
-
-  PJ_LOG(3, (THIS_FILE, "Verifying sip address: %s", pj_strbuf(&sip_address)));
-  if((res = pjsua_verify_url(pj_strbuf(&sip_address))) != PJ_SUCCESS ) {
-    PJ_PERROR(3, (THIS_FILE, res, "Invalid sip address"));
-    return res;
-  }
-
-	res = pjsua_call_make_call(current_acc, &sip_address, &call_opt, NULL,
-	    NULL, &current_call);
-
-  return res;
-}
 
