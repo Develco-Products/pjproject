@@ -364,19 +364,19 @@ PJ_DEF(void*)  pjsip_msg_find_hdr( const pjsip_msg *msg,
 				   pjsip_hdr_e hdr_type, const void *start)
 {
     const pjsip_hdr *hdr=(const pjsip_hdr*) start, *end=&msg->hdr;
-    PJ_LOG(3,("sip_msg", "%s looking for headers.", __func__));      // TODO: Remove
-    MARK("find hdr");
+    //PJ_LOG(3,("sip_msg", "%s looking for headers.", __func__));      // TODO: Remove
+    //MARK("find hdr");
 
     if (hdr == NULL) {
 	hdr = msg->hdr.next;
     }
     for (; hdr!=end; hdr = hdr->next) {
 	if (hdr->type == hdr_type) {
-        PJ_LOG(3,("sip_msg", "  header name: %s", hdr->name));      // TODO: Remove
+        //PJ_LOG(3,("sip_msg", "  header name: %s", hdr->name));      // TODO: Remove
       if(strcmp(pj_strbuf(&hdr->name), "Route") == 0) {
           char buf[1024];
         pjsip_hdr_print_on( (void*)hdr, buf, 1024);
-        PJ_LOG(3,("sip_msg", "    contents: %s", buf));      // TODO: Remove
+        //PJ_LOG(3,("sip_msg", "    contents: %s", buf));      // TODO: Remove
       }
 	    return (void*)hdr;
   }
