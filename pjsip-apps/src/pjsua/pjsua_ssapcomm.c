@@ -10,7 +10,7 @@
 //#include "pjsua_ssapmsg.h"
 #include "pjsua_app_scaip.h"
 
-#define THIS_FILE "pjsua_dp"
+#define THIS_FILE "pjsua_ssapcomm"
 
 /* An attempt to avoid stdout buffering for python tests:
  * - call 'fflush(stdout)' after each call to 'printf()/puts()'

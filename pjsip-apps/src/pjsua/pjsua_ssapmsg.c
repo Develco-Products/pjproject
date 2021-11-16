@@ -64,28 +64,10 @@ char* ssapmsgtype_str(enum ssapmsg_type type) {
   return ret;
 }
 
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* msg, pj_ssize_t msg_size) {
+pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* datagram) {
   pj_status_t res = PJ_SUCCESS;
 
-  //PJ_LOG(3, (THIS_FILE, "sizeof enum: %d", sizeof(enum ssapmsg_type)));
-
-  if(msg_size < SSAPMSG_HEADER_SIZE) {
-    PJ_LOG(3, (THIS_FILE, "Message min. size check: %d < %d", msg_size, sizeof(struct ssapmsg_datagram)));
-    return PJ_ETOOSMALL;
-  }
-
-  if(msg_size >= sizeof(struct ssapmsg_datagram)) {
-    PJ_LOG(3, (THIS_FILE, "Message size %dB exceeds buffer size of %dB", msg_size, sizeof(struct ssapmsg_datagram)));
-    return PJ_ETOOBIG;
-  }
-
-  //struct ssapmsg_datagram* datagram = (struct ssapmsg_datagram*) msg;
-
-  //TODO: Add crc check.
-  PJ_LOG(3, (THIS_FILE, "TODO: Add CRC check of ssap package."));
-  
-  //pj_memcpy((void*)dst->raw, (void*)&hdr->payload, hdr->payload_size);
-  dst->ref = datagram->ref;
+  dst->ref  = datagram->ref;
   dst->type = datagram->type;
 
   /* Add any special handling of specific payload types. */
@@ -94,6 +76,7 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* ms
       //break;
     case SSAPMSG_CALL:
       PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
+      res = PJ_EINVAL;
       break;
     case SSAPMSG_SCAIPMSG:
       /* Initialize address and message pointers to correct points in the data buffer. */
@@ -104,15 +87,18 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* ms
       else {
         dst->address = datagram->payload.scaipmsg.data;
         dst->msg = datagram->payload.scaipmsg.data + datagram->payload.scaipmsg.msg_offset;
+        res = PJ_SUCCESS;
       }
       break;
     case SSAPMSG_CONFIG:
       PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
+      res = PJ_EINVAL;
       break;
     case SSAPMSG_PJSUA:
       // pjsua commands are textbased, so ensure null-termination.
       dst->data = datagram->payload.pjsua.data;
       //dst->raw[hdr->payload_size] = '\0';
+      res = PJ_SUCCESS;
       break;
     case SSAPMSG_ACK:
       //break;
@@ -122,13 +108,15 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* ms
       //break;
     case SSAPMSG_ERROR:
       PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
+      res = PJ_EINVAL;
       break;
     defualt:
       PJ_LOG(3, (THIS_FILE, "Invalid payload type (%d) in header.", datagram->type));
+      res = PJ_EINVAL;
       break;
   }
 
-  return PJ_SUCCESS;
+  return res;
 }
 
 

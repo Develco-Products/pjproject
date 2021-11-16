@@ -53,10 +53,6 @@ pj_status_t teardown_ssap_iface(void);
 pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim);
 pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len);
 void ssapsock_send_blind(const void* const data, pj_ssize_t len);
-#if ENABLE_PJSUA_SSAP
-//const char* ui_scaip_handler(const enum ssapmsg_type msg_type, const union ssapmsg_payload* const data);
-const char* ui_scaip_handler(const struct ssapmsg_iface* const msg);
-#endif
 void ui_scaip_handler_str_input(const char* const inp);
 void ui_scaip_keystroke_help(void);
 

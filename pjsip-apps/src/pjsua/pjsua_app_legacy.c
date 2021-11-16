@@ -1843,6 +1843,7 @@ void legacy_main(void)
 
     // TODO: This is where you HACK IT!
     for (;;) {
+			pj_str_t inp;
 
 #if ENABLE_PJSUA_SSAP
 	struct ssapmsg_iface msg;
@@ -1861,12 +1862,13 @@ void legacy_main(void)
 	pj_status_t result = ssapmsg_parse(&msg, &msg_inp, inp_length);
 	if(result == PJ_SUCCESS) {
 		//const char* res = ui_scaip_handler(inp_type, &inp_data);
-		const char* res = ui_scaip_handler(&msg);
-		if(res != NULL) {
-			const uint16_t l = strlen(res);
-			pj_memcpy(inp_raw, res, l +1);
-			//inp_raw[l] = '\0';
-			PJ_LOG(3, (THIS_FILE, "Input received in legacy app: %s", inp_raw));
+		char* app_cmd = NULL;
+		pj_status_t res = ui_scaip_handler(&msg, &app_cmd);
+
+		if(res == PJ_SUCCESS && app_cmd != NULL) {
+			inp = pj_str(app_cmd);
+			pj_strtrim( &inp );
+			PJ_LOG(3, (THIS_FILE, "Input received in legacy app: %s", pj_strbuf(&inp)));
 		}
 		else {
 			continue;
@@ -1875,7 +1877,8 @@ void legacy_main(void)
 	else {
 		PJ_LOG(3, (THIS_FILE, "Failure parsing ssapmsg with result: 0x%X", result));
 		// Kill program.
-		strcpy(inp_raw, "q\n");
+		//strcpy(inp_raw, "q\n");
+		inp = pj_str("q\n");
 	}
 #else
 	const pj_ssize_t inp_length = ui_input(inp_raw, 1024);
@@ -1883,11 +1886,10 @@ void legacy_main(void)
 		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
 		continue;
 	}
-#endif
 
-	pj_str_t inp = pj_str(inp_raw);
-
+	inp = pj_str(inp_raw);
 	pj_strtrim( &inp );
+#endif
 
 	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
 	menuin[pj_strlen(&inp)] = '\0';

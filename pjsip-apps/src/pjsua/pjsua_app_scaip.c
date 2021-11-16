@@ -120,13 +120,14 @@ void ui_handle_scaip_cmd(const char* const inp) {
 }
 
 #if ENABLE_PJSUA_SSAP
-const char* ui_scaip_handler(const struct ssapmsg_iface* const msg) {
-  const char* parent_cmd = NULL;
+pj_status_t ui_scaip_handler(const struct ssapmsg_iface* const msg, char** app_cmd) {
+  pj_status_t res;
   PJ_LOG(3, (THIS_FILE, "Scaip command is %d", msg->type));
 
   switch( msg->type ) {
     case SSAPMSG_UNDEFINED:
       PJ_LOG(3, (THIS_FILE, "Scaip command is undefined. Did you mean to send this?"));
+      res = PJ_EINVAL;
       break;
     case SSAPMSG_CALL:
       PJ_LOG(3, (THIS_FILE, "Calling someone (NOT IMPLEMENTED)"));
@@ -138,30 +139,33 @@ const char* ui_scaip_handler(const struct ssapmsg_iface* const msg) {
         PJ_LOG(2, (THIS_FILE, "Number of calls: %d", i));
         data_output("%d", i);
       }*/
+      res = PJ_SUCCESS;
       break;
     case SSAPMSG_SCAIPMSG:
       //PJ_LOG(3, (THIS_FILE, "Sending a message (NOT IMPLEMENTED)"));
       PJ_LOG(2, (THIS_FILE, "Sending IM message: %s", msg->address));
-      send_scaip_im(msg);
+      res = send_scaip_im(msg);
       break;
     case SSAPMSG_CONFIG:
       PJ_LOG(3, (THIS_FILE, "CONFIG scaip command. (NOT IMPLEMENTED)"));
+      res = PJ_SUCCESS;
       break;
     case SSAPMSG_PJSUA:
       PJ_LOG(3, (THIS_FILE, "Passing command to pjsua legacy app."));
-      //parent_cmd = &data->pjsua.data[0];
-      //parent_cmd = msg->pjsua.data;
-      parent_cmd = msg->data;
+      *app_cmd = msg->data;
+      res = PJ_SUCCESS;
       break;
     case SSAPMSG_WARNING: /* fall-through */
     case SSAPMSG_ERROR:
 		  PJ_LOG(3, (THIS_FILE, "Parse error of received packet."));
+      res = PJ_EINVAL;
       break;
     default:
       PJ_LOG(3, (THIS_FILE, "Unknown scaip command: %d", msg->type));
+      res = PJ_EINVAL;
       break;
   }
 
-  return parent_cmd;
+  return res;
 }
 #endif

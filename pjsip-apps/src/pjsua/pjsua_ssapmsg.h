@@ -77,7 +77,7 @@ struct ssapmsg_iface {
 #define SSAPMSG_HEADER_SIZE (sizeof(struct ssapmsg_datagram) - sizeof(union ssapmsg_payload))
 
 char* ssapmsgtype_str(enum ssapmsg_type type);
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* msg, pj_ssize_t msg_size);
+pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* datagram);
 void ssapmsg_print(const struct ssapmsg_datagram* const msg);
 void update_crc32(struct ssapmsg_datagram* const ssapmsg);
 pj_status_t validate_ssapmsg_crc(struct ssapmsg_datagram* const ssapmsg);
