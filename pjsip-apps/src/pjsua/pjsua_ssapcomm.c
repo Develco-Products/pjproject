@@ -264,6 +264,23 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
     case PJ_STATUS_FROM_OS(OSERR_EAFNOSUPPORT):
     case PJ_STATUS_FROM_OS(OSERR_ENOPROTOOPT):  
     case PJ_STATUS_FROM_OS(ENOTSOCK):
+#if 0
+      {
+        PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
+
+        const char* const quit_cmd = "q\n";
+        struct ssapmsg_datagram msg = { 
+          .ref = 0u,
+          .type = SSAPMSG_PJSUA,
+          .payload_size = strlen(quit_cmd) +1
+        };
+        pj_memcpy(msg.payload.raw, quit_cmd, strlen(quit_cmd) +1);
+        update_crc32(&msg);
+
+        pj_memcpy((void*) inp, (void*) &msg, msg.payload_size + SSAPMSG_HEADER_SIZE);
+        res = PJ_SUCCESS;
+      }
+#endif
       PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
       break;
     default:
@@ -275,7 +292,7 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
 }
 
 pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
-  LOG_DATA_OUTPUT();
+  LOG_DATA_OUTPUT(data);
 
   pj_status_t res = pj_sock_send(client_socket, data, len, 0);
   if( res == PJ_SUCCESS ) {

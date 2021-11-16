@@ -64,7 +64,7 @@ char* ssapmsgtype_str(enum ssapmsg_type type) {
   return ret;
 }
 
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, uint8_t* msg, pj_ssize_t msg_size) {
+pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* msg, pj_ssize_t msg_size) {
   pj_status_t res = PJ_SUCCESS;
 
   //PJ_LOG(3, (THIS_FILE, "sizeof enum: %d", sizeof(enum ssapmsg_type)));
@@ -79,7 +79,7 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, uint8_t* msg, pj_ssize_t ms
     return PJ_ETOOBIG;
   }
 
-  struct ssapmsg_datagram* datagram = (struct ssapmsg_datagram*) msg;
+  //struct ssapmsg_datagram* datagram = (struct ssapmsg_datagram*) msg;
 
   //TODO: Add crc check.
   PJ_LOG(3, (THIS_FILE, "TODO: Add CRC check of ssap package."));
@@ -220,7 +220,6 @@ pj_status_t validate_ssapmsg_crc(struct ssapmsg_datagram* const ssapmsg) {
     : PJ_EINVAL;
 }
 
-
 pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
   pj_ssize_t lim = sizeof(struct ssapmsg_datagram);
   pj_status_t res = ssapsock_receive((uint8_t*) msg, &lim);
@@ -248,7 +247,7 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
       response_token.ref  = msg->ref;
       response_token.type = msg->type;
 
-      PJ_LOG(5, (THIS_FILE, "Setting pending response for %s with id: %d", ssapmsgtype_str(response_token.type), response_token.ref));
+      PJ_LOG(3, (THIS_FILE, "Setting pending response for %s with id: %d", ssapmsgtype_str(response_token.type), response_token.ref));
       break;
 
     case PJ_STATUS_FROM_OS(ENOTSOCK):
@@ -286,7 +285,6 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
 
   return res;
 }
-
 
 pj_ssize_t ssapmsg_send(struct ssapmsg_datagram* const msg) {
   /* Add crc to packet. */

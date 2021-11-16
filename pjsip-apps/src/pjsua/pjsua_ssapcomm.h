@@ -2,9 +2,9 @@
 #define _PJSUA_SSAPCOMM_H_
 
 #define MANUAL_SETTINGS
-#define UI_SOCKET (0)
-#define UI_TERMINAL (1)
-#define ENABLE_PJSUA_SSAP (0)
+#define UI_SOCKET (1)
+#define UI_TERMINAL (0)
+#define ENABLE_PJSUA_SSAP (1)
 
 /* Log data output. Value > 0 specifies log level. 
  * 0 disables. */
@@ -86,17 +86,17 @@ pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len);
 #if DATA_OUTPUT_LOG_LEVEL == 0
 # define LOG_DATA_OUTPUT(s) 
 #elif DATA_OUTPUT_LOG_LEVEL == 1
-# define LOG_DATA_OUTPUT(s) PJ_LOG(1,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(1,(THIS_FILE,"%s",s))
 #elif DATA_OUTPUT_LOG_LEVEL == 2
-# define LOG_DATA_OUTPUT(s) PJ_LOG(2,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(2,(THIS_FILE,"%s",s))
 #elif DATA_OUTPUT_LOG_LEVEL == 3
-# define LOG_DATA_OUTPUT(s) PJ_LOG(3,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(3,(THIS_FILE,"%s",s))
 #elif DATA_OUTPUT_LOG_LEVEL == 4
-# define LOG_DATA_OUTPUT(s) PJ_LOG(4,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(4,(THIS_FILE,"%s",s))
 #elif DATA_OUTPUT_LOG_LEVEL == 5
-# define LOG_DATA_OUTPUT(s) PJ_LOG(5,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(5,(THIS_FILE,"%s",s))
 #elif DATA_OUTPUT_LOG_LEVEL == 6
-# define LOG_DATA_OUTPUT(s) PJ_LOG(6,(THIS_FILE,"%s",s));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(6,(THIS_FILE,"%s",s))
 #else
 # error data log level invalid.
 #endif

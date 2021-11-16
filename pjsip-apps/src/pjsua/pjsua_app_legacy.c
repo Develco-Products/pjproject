@@ -1822,7 +1822,7 @@ void legacy_main(void)
 {
     char menuin[1024];
     char buf[128];
-    char inp_raw[1024];
+    //char inp_raw[1024];
 		int error_count = 0;
 		pj_status_t status;
 
@@ -1844,19 +1844,21 @@ void legacy_main(void)
     // TODO: This is where you HACK IT!
     for (;;) {
 
-	const pj_ssize_t inp_length = ui_input(inp_raw, 1024);
+#if ENABLE_PJSUA_SSAP
+	struct ssapmsg_iface msg;
+	struct ssapmsg_datagram msg_inp;
+
+	const pj_status_t inp_length = ssapmsg_receive(&msg_inp);
 	if(inp_length == -1) {
 		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
 		continue;
 	}
 
-#if ENABLE_PJSUA_SSAP
-	//union ssapmsg_payload inp_data;
-	struct ssapmsg_iface msg;
+	//ssapmsg_print((struct ssapmsg_datagram*) inp_raw);
+	ssapmsg_print(&msg_inp);
 
-	ssapmsg_print((struct ssapmsg_datagram*) inp_raw);
-
-	pj_status_t result = ssapmsg_parse(&msg, inp_raw, inp_length);
+	//pj_status_t result = ssapmsg_parse(&msg, inp_raw, inp_length);
+	pj_status_t result = ssapmsg_parse(&msg, &msg_inp, inp_length);
 	if(result == PJ_SUCCESS) {
 		//const char* res = ui_scaip_handler(inp_type, &inp_data);
 		const char* res = ui_scaip_handler(&msg);
@@ -1874,6 +1876,12 @@ void legacy_main(void)
 		PJ_LOG(3, (THIS_FILE, "Failure parsing ssapmsg with result: 0x%X", result));
 		// Kill program.
 		strcpy(inp_raw, "q\n");
+	}
+#else
+	const pj_ssize_t inp_length = ui_input(inp_raw, 1024);
+	if(inp_length == -1) {
+		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
+		continue;
 	}
 #endif
 
