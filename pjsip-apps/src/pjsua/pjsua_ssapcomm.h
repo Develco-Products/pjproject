@@ -2,9 +2,9 @@
 #define _PJSUA_SSAPCOMM_H_
 
 #define MANUAL_SETTINGS
-#define UI_SOCKET (1)
-#define UI_TERMINAL (0)
-#define ENABLE_PJSUA_SSAP (1)
+#define UI_SOCKET (0)
+#define UI_TERMINAL (1)
+#define ENABLE_PJSUA_SSAP (0)
 
 /* Log data output. Value > 0 specifies log level. 
  * 0 disables. */
@@ -71,32 +71,32 @@ extern char dp_print_buffer[1024];
 # 	define puts(s) {sprintf(dp_print_buffer, "%s\n", s);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	endif
-
 #	define ui_input(buffer, buffer_length) ui_input_socket(buffer, buffer_length)
 pj_ssize_t ui_input_socket(char* const buf, pj_size_t len);
 #elif UI_TERMINAL
-# define printf(...) {printf(__VA_ARGS__);fflush(stdout);}
-# define puts(s) {puts(s);fflush(stdout);}
+# define printf(...) {printf(__VA_ARGS__);fflush(stdout);}while(0)
+# define puts(s) {puts(s);fflush(stdout);}while(0)
 #	define ui_input(buffer, buffer_length) ui_input_terminal(buffer, buffer_length)
+#	define data_output(...) {printf(__VA_ARGS__);fflush(stdout);}while(0)
 pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len);
 #else
 # error "You must specify where UI i/o is sent."
 #endif
 
 #if DATA_OUTPUT_LOG_LEVEL == 0
-# define LOG_DATA_OUTPUT() 
+# define LOG_DATA_OUTPUT(s) 
 #elif DATA_OUTPUT_LOG_LEVEL == 1
-# define LOG_DATA_OUTPUT() PJ_LOG(1,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(1,(THIS_FILE,"%s",s));
 #elif DATA_OUTPUT_LOG_LEVEL == 2
-# define LOG_DATA_OUTPUT() PJ_LOG(2,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(2,(THIS_FILE,"%s",s));
 #elif DATA_OUTPUT_LOG_LEVEL == 3
-# define LOG_DATA_OUTPUT() PJ_LOG(3,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(3,(THIS_FILE,"%s",s));
 #elif DATA_OUTPUT_LOG_LEVEL == 4
-# define LOG_DATA_OUTPUT() PJ_LOG(4,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(4,(THIS_FILE,"%s",s));
 #elif DATA_OUTPUT_LOG_LEVEL == 5
-# define LOG_DATA_OUTPUT() PJ_LOG(5,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(5,(THIS_FILE,"%s",s));
 #elif DATA_OUTPUT_LOG_LEVEL == 6
-# define LOG_DATA_OUTPUT() PJ_LOG(6,(THIS_FILE,"%s",dp_print_buffer));
+# define LOG_DATA_OUTPUT(s) PJ_LOG(6,(THIS_FILE,"%s",s));
 #else
 # error data log level invalid.
 #endif
