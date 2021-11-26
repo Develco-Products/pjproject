@@ -13,49 +13,115 @@
 
 /* keeps track of last sent message. 
  * Keep this static to initialize to 0. */
+#if 0
 static struct {
-  uint32_t ref;
-  enum ssapmsg_type type;
+  uint16_t ref;
+	uint16_t protocol_version;
+  ssapmsg_t type;
 } response_token;
+#endif
 
+static ssapmsg_datagram_t response_token;
+
+#if 0
 static union ssapmsg_payload buffer;
 static union ssapmsg_payload* shared_buffer = NULL;
+#endif
 
-static void sync_response(struct ssapmsg_datagram* const datagram);
+static void sync_response(ssapmsg_datagram_t* const datagram);
 
+/* Make a safe conversion of pj_str to char* buffer. Including handling hidden
+ * null-strings and strings with missing null-terminators. */
+void pjstr_extract(char* const dst, const pj_str_t* const pj_str, const ssize_t max_length) {
+	const char* const s = pj_strbuf(pj_str);
+	const pj_size_t pj_str_length = pj_strlen(pj_str);
+	if(s == NULL || pj_str_length == 0) {
+		dst[0] = '\0';
+	}
+	else {
+		const pj_ssize_t cp_bytes = (pj_str_length > max_length -1) 
+			? max_length -1 
+			: pj_str_length;
+		pj_memcpy(dst, s, cp_bytes);
+		dst[cp_bytes] = '\0';
+	}
+}
 
-char* ssapmsgtype_str(enum ssapmsg_type type) {
+char* ssapmsgtype_str(ssapmsg_t type) {
   char* ret = NULL;
 
   switch(type) {
-    case SSAPMSG_UNDEFINED:
+	  case SSAPMSG_UNDEFINED:
       ret = "SSAPMSG_UNDEFINED";
       break;
-    case SSAPMSG_CALL:
-      ret = "SSAPMSG_CALL";
-      break;
-    case SSAPMSG_SCAIPMSG:
-      ret = "SSAPMSG_SCAIPMSG";
-      break;
-    case SSAPMSG_CONFIG:
-      ret = "SSAPMSG_CONFIG";
-      break;
-    case SSAPMSG_PJSUA:
-      ret = "SSAPMSG_PJSUA";
-      break;
-    /* SSAPMSG_NO_OF_MSG_TYPES: Invalid as message type. */
-    case SSAPMSG_ACK:
+	  case SSAPMSG_ACK:
       ret = "SSAPMSG_ACK";
       break;
-    case SSAPMSG_NACK:
+	  case SSAPMSG_NACK:
       ret = "SSAPMSG_NACK";
       break;
-    case SSAPMSG_WARNING:
+	  case SSAPMSG_WARNING:
       ret = "SSAPMSG_WARNING";
       break;
-    case SSAPMSG_ERROR:
+	  case SSAPMSG_ERROR:
       ret = "SSAPMSG_ERROR";
       break;
+
+	  case SSAPCALL_DIAL:
+	  	ret = "SSAPCALL_DIAL";
+      break;
+	  case SSAPCALL_HANGUP:
+	  	ret = "SSAPCALL_HANGUP";
+      break;
+		case SSAPCALL_STATUS:
+			ret = "SSAPCALL_STATUS";
+			break;
+	  case SSAPCALL_MIC_SENSITIVITY:
+	  	ret = "SSAPCALL_MIC_SENSITIVITY";
+      break;
+		case SSAPCALL_MUTE_MIC:
+			ret = "SSAPCALL_MUTE_MIC";
+			break;
+	  case SSAPCALL_SPEAKER_VOLUME:
+	  	ret = "SSAPCALL_SPEAKER_VOLUME";
+      break;
+		case SSAPCALL_MUTE_SPEAKER:
+			ret = "SSAPCALL_MUTE_SPEAKER";
+			break;
+	  case SSAPCALL_DTMF:
+	  	ret = "SSAPCALL_DTMF";
+      break;
+	  case SSAPCALL_QUALITY:
+	  	ret = "SSAPCALL_QUALITY";
+      break;
+	  case SSAPCALL_INFO:
+	  	ret = "SSAPCALL_INFO";
+      break;
+
+	  case SSAPMSG_SCAIP:
+	  	ret = "SSAPMSG_SCAIP";
+      break;
+		case SSAPMSG_DTMF:
+			ret = "SSAPMSG_DTMF";
+			break;
+	  case SSAPMSG_PLAIN:
+	  	ret = "SSAPMSG_PLAIN";
+      break;
+
+	  case SSAPCONFIG_QUIT:
+	  	ret = "SSAPCONFIG_QUIT";
+      break;
+	  case SSAPCONFIG_RELOAD:
+	  	ret = "SSAPCONFIG_RELOAD";
+      break;
+	  case SSAPCONFIG_STATUS:
+	  	ret = "SSAPCONFIG_STATUS";
+      break;
+
+	  case SSAPPJSUA:
+	  	ret = "SSAPPJSUA";
+      break;
+
     default:
       ret = "INVALID SSAPMSG enum value.";
       break;
@@ -64,7 +130,8 @@ char* ssapmsgtype_str(enum ssapmsg_type type) {
   return ret;
 }
 
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* datagram) {
+#if 0
+pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, ssapmsg_datagram_t* datagram) {
   pj_status_t res = PJ_SUCCESS;
 
   dst->ref  = datagram->ref;
@@ -72,44 +139,56 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* da
 
   /* Add any special handling of specific payload types. */
   switch(datagram->type) {
-    case SSAPMSG_UNDEFINED:
-      //break;
-    case SSAPMSG_CALL:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
+	  case SSAPMSG_UNDEFINED:
+	  case SSAPMSG_ACK:
+	  case SSAPMSG_NACK:
+	  case SSAPMSG_WARNING:
+	  case SSAPMSG_ERROR:
+      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
       res = PJ_EINVAL;
       break;
-    case SSAPMSG_SCAIPMSG:
+
+	  case SSAPCALL_DIAL:
+
+
+	  case SSAPCALL_HANGUP:
+	  case SSAPCALL_MIC_SENSITIVITY:
+	  case SSAPCALL_SPEAKER_VOLUME:
+	  case SSAPCALL_DTMF:
+	  case SSAPCALL_QUALITY:
+	  case SSAPCALL_INFO:
+      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
+      res = PJ_EINVAL;
+      break;
+
+	  case SSAPMSG_SCAIP:
       /* Initialize address and message pointers to correct points in the data buffer. */
-      if(datagram->payload.scaipmsg.msg_offset >= datagram->payload_size) {
+      if(datagram->payload.msg_scaip.msg_offset >= datagram->payload_size) {
         PJ_LOG(3, (THIS_FILE, "Contents of scaip message corrupted."));
         res = PJ_EINVAL;
       }
       else {
-        dst->address = datagram->payload.scaipmsg.data;
-        dst->msg = datagram->payload.scaipmsg.data + datagram->payload.scaipmsg.msg_offset;
+        dst->address = datagram->payload.msg_scaip.data;
+        dst->msg = datagram->payload.msg_scaip.data + datagram->payload.msg_scaip.msg_offset;
         res = PJ_SUCCESS;
       }
       break;
-    case SSAPMSG_CONFIG:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
+	  case SSAPMSG_PLAIN:
+
+	  case SSAPCONFIG_QUIT:
+	  case SSAPCONFIG_RELOAD:
+	  case SSAPCONFIG_STATUS:
+      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
       res = PJ_EINVAL;
       break;
-    case SSAPMSG_PJSUA:
+
+	  case SSAPPJSUA:
       // pjsua commands are textbased, so ensure null-termination.
       dst->data = datagram->payload.pjsua.data;
       //dst->raw[hdr->payload_size] = '\0';
       res = PJ_SUCCESS;
       break;
-    case SSAPMSG_ACK:
-      //break;
-    case SSAPMSG_NACK:
-      //break;
-    case SSAPMSG_WARNING:
-      //break;
-    case SSAPMSG_ERROR:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for message type: %s", datagram->type));
-      res = PJ_EINVAL;
-      break;
+
     defualt:
       PJ_LOG(3, (THIS_FILE, "Invalid payload type (%d) in header.", datagram->type));
       res = PJ_EINVAL;
@@ -118,66 +197,101 @@ pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* da
 
   return res;
 }
+#endif
 
-
-void ssapmsg_print(const struct ssapmsg_datagram* const msg) {
+void ssapmsg_print(ssapmsg_datagram_t* const msg) {
   char buffer[1024];
+
+#if 0
+  PJ_LOG(3, (THIS_FILE, "Info ---------------------"));
+  PJ_LOG(3, (THIS_FILE, "  sizeof datagrame	:  %d / 0x%X", sizeof(ssapmsg_datagram_t), sizeof(ssapmsg_datagram_t)));
+  PJ_LOG(3, (THIS_FILE, "  sizeof payload   :  %d / 0x%X", sizeof(union ssapmsg_payload), sizeof(union ssapmsg_payload)));
+  PJ_LOG(3, (THIS_FILE, "  sizeof header    :  %d / 0x%X", SSAPMSG_HEADER_SIZE, SSAPMSG_HEADER_SIZE));
+  PJ_LOG(3, (THIS_FILE, "--------------------------"));
+
+	ssapmsg_datagram_t d;
+	d.ref = 0x1122;
+	d.protocol_version = 0x3344;
+	d.type = SSAPCONFIG_STATUS;
+	d.payload_size = 0x5566;
+	d.crc = 0x778899AA;
+	d.payload.msg_scaip.msg_offset = 0xBBCC;
+	print_raw_hex((uint8_t*) &d, 64);
+#endif
 
   PJ_LOG(3, (THIS_FILE, "SSAP Message -------------"));
   PJ_LOG(3, (THIS_FILE, "Header"));
-  PJ_LOG(3, (THIS_FILE, "  Ref:           %d / 0x%X", msg->ref, msg->ref));
+  PJ_LOG(3, (THIS_FILE, "  Ref          :  %d / 0x%X", msg->ref, msg->ref));
+  PJ_LOG(3, (THIS_FILE, "  Version      :  %d", msg->protocol_version));
+  PJ_LOG(3, (THIS_FILE, "  Type         :  0x%X (%s)", msg->type, ssapmsgtype_str(msg->type)));
+  PJ_LOG(3, (THIS_FILE, "  Payload Size :  %d", msg->payload_size));
+  PJ_LOG(3, (THIS_FILE, "  CRC32        :  0x%X (%s)", msg->crc, ((validate_ssapmsg_crc(msg) == PJ_SUCCESS) ? "passed" : "fail")));
+	
+  PJ_LOG(3, (THIS_FILE, "Payload"));
+	
   switch(msg->type) {
-    case SSAPMSG_UNDEFINED:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Undefined (0x%x)", msg->type));
-      strcpy(buffer, " - no data -");
+	  case SSAPMSG_UNDEFINED:
+      PJ_LOG(3, (THIS_FILE, "  - no data -"));
       break;
-    case SSAPMSG_CALL:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Call (0x%x)", msg->type));
-      strcpy(buffer, " - not implemented -");
+	  case SSAPMSG_ACK:
+	  case SSAPMSG_NACK:
+	  case SSAPMSG_WARNING:
+	  case SSAPMSG_ERROR:
+      PJ_LOG(3, (THIS_FILE, "  - not implemented -"));
       break;
-    case SSAPMSG_SCAIPMSG:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Scaip Message (0x%x)", msg->type));
-      sprintf(buffer,       "  offset:       %d\n"
-                            "  data:         %s",
-                            msg->payload.scaipmsg.msg_offset,
-                            (char*) msg->payload.scaipmsg.data);
+
+	  case SSAPCALL_DIAL:
+      PJ_LOG(3, (THIS_FILE, "  address      : %s", msg->payload.call_dial.sip_address));
       break;
-    case SSAPMSG_CONFIG:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Config (0x%x)", msg->type));
-      strcpy(buffer, " - not implemented -");
+	  case SSAPCALL_HANGUP:
+      PJ_LOG(3, (THIS_FILE, "  - not implemented -"));
+			break;
+		case SSAPCALL_STATUS:
+      PJ_LOG(3, (THIS_FILE, "  call id      : %d", msg->payload.call_status.id));
+      PJ_LOG(3, (THIS_FILE, "  call state   : %d", msg->payload.call_status.state));
+      PJ_LOG(3, (THIS_FILE, "  state text   : %s", msg->payload.call_status.state_text));
       break;
-    case SSAPMSG_PJSUA:
-      PJ_LOG(3, (THIS_FILE, "  Type:          Pjsua (0x%x)", msg->type));
-      sprintf(buffer,       "  data:         %s", msg->payload.pjsua.data);
+	  case SSAPCALL_MIC_SENSITIVITY:
+		case SSAPCALL_MUTE_MIC:
+	  case SSAPCALL_SPEAKER_VOLUME:
+		case SSAPCALL_MUTE_SPEAKER:
+	  case SSAPCALL_DTMF:
+	  case SSAPCALL_QUALITY:
+	  case SSAPCALL_INFO:
+      PJ_LOG(3, (THIS_FILE, "  - not implemented -"));
+			break;
+
+	  case SSAPMSG_SCAIP:
+			{
+				uint16_t offset = msg->payload.msg_scaip.msg_offset;
+	      PJ_LOG(3, (THIS_FILE, "  address      : %s", msg->payload.msg_scaip.data));
+	      PJ_LOG(3, (THIS_FILE, "  message      : %s", msg->payload.msg_scaip.data + offset));
+			}
+			break;
+
+		case SSAPMSG_DTMF:
+	  case SSAPMSG_PLAIN:
+
+	  case SSAPCONFIG_QUIT:
+	  case SSAPCONFIG_RELOAD:
+	  case SSAPCONFIG_STATUS:
+      PJ_LOG(3, (THIS_FILE, "  - not implemented -"));
       break;
-    case SSAPMSG_ACK:
-      PJ_LOG(3, (THIS_FILE, "  Type:          Ack (0x%x)", msg->type));
+
+	  case SSAPPJSUA:
+      PJ_LOG(3, (THIS_FILE, "  data:         %s", msg->payload.pjsua.data));
       break;
-    case SSAPMSG_NACK:
-      PJ_LOG(3, (THIS_FILE, "  Type:          Nack (0x%x)", msg->type));
-      break;
-    case SSAPMSG_WARNING:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Warning (0x%x)", msg->type));
-      strcpy(buffer, " - no data -");
-      break;
-    case SSAPMSG_ERROR:
-      PJ_LOG(3, (THIS_FILE, "  Type:         Error (0x%x)", msg->type));
-      strcpy(buffer, " - no data -");
-      break;
+
     default:
-      PJ_LOG(3, (THIS_FILE, "  Type:         - no type - (0x%x)", msg->type));
-      strcpy(buffer, " - no data -");
+      PJ_LOG(3, (THIS_FILE, "  Invalid type. Raw hex dump of 64B payload:", msg->type));
+			print_raw_hex(msg->payload.raw, 64);
       break;
   }
-  PJ_LOG(3, (THIS_FILE, "  Payload size:  %dB / 0x%X", msg->payload_size, msg->payload_size));
-  PJ_LOG(3, (THIS_FILE, "  CRC:           0x%X", msg->crc));
-  PJ_LOG(3, (THIS_FILE, "Payload"));
-  PJ_LOG(3, (THIS_FILE, "%s", buffer));
   PJ_LOG(3, (THIS_FILE, "-- End of message: %d", msg->ref));
 }
 
 
-void update_crc32(struct ssapmsg_datagram* const ssapmsg) {
+void update_crc32(ssapmsg_datagram_t* const ssapmsg) {
   /* Clear out any existing crc before calculation. */
   ssapmsg->crc = 0u;
 
@@ -188,7 +302,7 @@ void update_crc32(struct ssapmsg_datagram* const ssapmsg) {
 }
 
 
-pj_status_t validate_ssapmsg_crc(struct ssapmsg_datagram* const ssapmsg) {
+pj_status_t validate_ssapmsg_crc(ssapmsg_datagram_t* const ssapmsg) {
   uint32_t msg_crc = ssapmsg->crc;
   uint32_t msg_calc;
 
@@ -208,8 +322,31 @@ pj_status_t validate_ssapmsg_crc(struct ssapmsg_datagram* const ssapmsg) {
     : PJ_EINVAL;
 }
 
-pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
-  pj_ssize_t lim = sizeof(struct ssapmsg_datagram);
+void ssapmsg_clone(ssapmsg_datagram_t* const dst, const ssapmsg_datagram_t* const src) {
+	const pj_ssize_t len = src->payload_size + SSAPMSG_HEADER_SIZE;
+	pj_memcpy((void*) dst, src, len);
+}
+
+pj_bool_t ssapmsg_is_status(const ssapmsg_datagram_t* const d) {
+	return d->ref == SSAPMSG_STATUS_REFERENCE;
+}
+
+pj_ssize_t ssapmsg_datagram_size(const ssapmsg_datagram_t* const msg) {
+	return SSAPMSG_HEADER_SIZE + msg->payload_size;
+}
+
+const char* const ssapmsg_scaip_address(const ssapmsg_datagram_t* msg) {
+  return msg->payload.msg_scaip.data;
+}
+
+
+const char* const ssapmsg_scaip_message(const ssapmsg_datagram_t* msg) {
+  return msg->payload.msg_scaip.data + msg->payload.msg_scaip.msg_offset;
+}
+
+
+pj_status_t ssapmsg_receive(ssapmsg_datagram_t* const msg) {
+  pj_ssize_t lim = sizeof(ssapmsg_datagram_t);
   pj_status_t res = ssapsock_receive((uint8_t*) msg, &lim);
 
   switch(res) {
@@ -232,8 +369,16 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
         PJ_LOG(3, (THIS_FILE, "Overwriting existing pending response token for: %s with id: %d", ssapmsgtype_str(response_token.type), response_token.ref));
       }
 
-      response_token.ref  = msg->ref;
-      response_token.type = msg->type;
+#if 1
+			if(msg->ref < INT16_MAX) {
+				//TODO: Add async message handling.
+      	response_token.ref  = msg->ref;
+      	response_token.protocol_version = msg->protocol_version;
+      	response_token.type = msg->type;
+			}
+			/* else: status message. Do not track reference for a reply. */
+#endif
+			//ssapmsg_clone(response_token, msg);
 
       PJ_LOG(3, (THIS_FILE, "Setting pending response for %s with id: %d", ssapmsgtype_str(response_token.type), response_token.ref));
       break;
@@ -242,7 +387,7 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
       {
         const char* const cmd_quit = "q\n";
         const uint32_t l = strlen(cmd_quit) +1;
-        //struct ssapmsg_datagram msg = {
+        //ssapmsg_datagram_t msg = {
         //  .ref = 0,
         //  .type = SSAPMSG_PJSUA,
         //  .payload_size = l,
@@ -251,13 +396,15 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
         //pj_memcpy((void*) &msg.payload.pjsua, cmd_quit, l);
 
         msg->ref = 0; // ref dummy value.
-        msg->type = SSAPMSG_PJSUA;
+				msg->protocol_version = 0; // dummy version
+        msg->type = SSAPPJSUA;
         msg->payload_size = l;
         msg->crc = 0u;  // dummy crc.
         pj_memcpy(msg->payload.pjsua.data, cmd_quit, l);
 
         //lim = SSAPMSG_HEADER_SIZE + l;
         //pj_memcpy(inp, &msg, *lim);
+				//
 
         //PJ_PERROR(1, (THIS_FILE, res, "  %s ", __func__));
         /* Signal for program to quit. */
@@ -274,11 +421,15 @@ pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg) {
   return res;
 }
 
-pj_ssize_t ssapmsg_send(struct ssapmsg_datagram* const msg) {
+pj_ssize_t ssapmsg_send(ssapmsg_datagram_t* const msg) {
   /* Add crc to packet. */
   update_crc32(msg);
 
   pj_ssize_t msg_size = msg->payload_size + SSAPMSG_HEADER_SIZE;
+
+	PJ_LOG(3, (THIS_FILE, "Sending data:"));
+	print_raw_hex(msg, msg_size);
+
   const pj_ssize_t expected_transmission_length = msg_size;
   pj_status_t res = ssapsock_send((void*) msg, &msg_size);
 
@@ -298,62 +449,105 @@ pj_ssize_t ssapmsg_send(struct ssapmsg_datagram* const msg) {
   return res;
 }
 
-pj_status_t ssapmsg_send_response(const pj_status_t resp, const char* const msg) {
-  struct ssapmsg_datagram datagram;
-  sync_response(&datagram);
+pj_status_t ssapmsg_response_send(const pj_status_t status, const char* const msg) {
+  ssapmsg_datagram_t datagram;
+	sync_response(&datagram);
 
-  datagram.type = (resp == PJ_SUCCESS)
-    ? SSAPMSG_ACK
-    : SSAPMSG_NACK;
+	const ssize_t msg_length = (msg != NULL)
+		? strlen(msg) +1
+		: 1;
 
-  // Set payload
-  datagram.payload.response.code = resp;
+	datagram.type = (status == PJ_SUCCESS)
+		? SSAPMSG_ACK
+		: SSAPMSG_NACK;
+	datagram.payload_size = sizeof(ssapmsg_status_t) + msg_length;
 
-  if( msg != NULL ) {
-    pj_ssize_t msg_length = strlen(msg) +1;
-    datagram.payload_size = sizeof(struct ssapmsg_response) + msg_length;
+	/* Ack and Nack share the status_t payload type. */
+	ssapmsg_status_t* payload = (ssapmsg_status_t*) &datagram.payload;
 
-    pj_memcpy(datagram.payload.response.msg, msg, msg_length);
-  }
-  else {
-    datagram.payload_size = sizeof(struct ssapmsg_response) + 1;
-    datagram.payload.response.msg[0] = '\0';
-  }
-  
-  pj_ssize_t b_sent = ssapmsg_send(&datagram);
+	payload->code = status;
+	if(msg != NULL) {
+		pj_memcpy(payload->msg, msg, msg_length);
+	}
+	else {
+		payload->msg[0] = '\0';
+	}
 
-  return (b_sent == SSAPMSG_HEADER_SIZE)
+	const pj_ssize_t bytes_sent = ssapmsg_send(&datagram);
+	
+  return (bytes_sent == ssapmsg_datagram_size(&datagram))
     ? PJ_SUCCESS
-    : PJ_EUNKNOWN;
+    : -1;
 }
 
-pj_ssize_t ssapmsg_scaipmsg_send(const char* const addr, const char* const msg) {
-  struct ssapmsg_datagram datagram;
+pj_status_t ssapcall_dial_send(const char* const addr) {
+  ssapmsg_datagram_t datagram;
+  const ssize_t addr_length = strlen(addr) +1;
+
+  sync_response(&datagram);
+  datagram.type = SSAPCALL_DIAL;
+  datagram.payload_size = sizeof(ssapmsg_scaip_t) + addr_length;
+
+	/* Pack Payload */
+	ssapcall_dial_t* p = &datagram.payload.call_dial;
+	pj_memcpy(p->sip_address, addr, addr_length);
+
+  /* Send it. */
+  return ssapmsg_send(&datagram) == ssapmsg_datagram_size(&datagram)
+		? PJ_SUCCESS
+		: -1;
+}
+
+pj_status_t ssapcall_status_send(const pjsua_call_info* const call_state) {
+	ssapmsg_datagram_t datagram;
+	const pj_ssize_t state_len = pj_strlen(&call_state->state_text) +1;
+
+	sync_response(&datagram);
+	datagram.type = SSAPCALL_STATUS;
+	datagram.payload_size = sizeof(ssapcall_status_t) + state_len;
+
+	/* Pack payload */
+	ssapcall_status_t* p = &datagram.payload.call_status;
+	p->id = call_state->id;
+	p->state = call_state->state;
+
+	pjstr_extract(p->state_text, &call_state->state_text, SSAPMSG_VARDATA_SIZE(ssapcall_status_t));
+
+  /* Send it. */
+  return ssapmsg_send(&datagram) == ssapmsg_datagram_size(&datagram)
+		? PJ_SUCCESS
+		: -1;
+}
+
+pj_status_t ssapmsg_scaip_send(const char* const addr, const char* const msg) {
+  ssapmsg_datagram_t datagram;
   const ssize_t addr_length = strlen(addr) +1;
   const ssize_t msg_length = strlen(msg) +1;
 
   sync_response(&datagram);
-
-  datagram.type = SSAPMSG_SCAIPMSG;
-  datagram.payload_size = sizeof(struct ssapmsg_scaipmsg) + addr_length + msg_length;
+  datagram.type = SSAPMSG_SCAIP;
+  datagram.payload_size = sizeof(ssapmsg_scaip_t) + addr_length + msg_length;
 
   /* Pack payload. */
-  struct ssapmsg_scaipmsg* p = &datagram.payload.scaipmsg;
+  ssapmsg_scaip_t* p = &datagram.payload.msg_scaip;
   pj_memcpy(p->data, addr, addr_length);
   p->msg_offset = addr_length +1;
   pj_memcpy(p->data + p->msg_offset, msg, msg_length);
 
   /* Send it. */
-  ssapmsg_send(&datagram);
+  return ssapmsg_send(&datagram) == ssapmsg_datagram_size(&datagram)
+		? PJ_SUCCESS
+		: -1;
 }
 
-static void sync_response(struct ssapmsg_datagram* const datagram) {
+static void sync_response(ssapmsg_datagram_t* const datagram) {
   if(response_token.type == SSAPMSG_UNDEFINED) {
     PJ_LOG(3, (THIS_FILE, "Message flow is out of sync! No response is pending."));
-    datagram->ref = -1u;
+    datagram->ref = SSAPMSG_MESSAGE_FLOW_OUT_OF_SYNC;
   }
   else {
     datagram->ref = response_token.ref;
   }
+	datagram->protocol_version = SSAPMSG_PROTOCOL_VERSION;
 }
 

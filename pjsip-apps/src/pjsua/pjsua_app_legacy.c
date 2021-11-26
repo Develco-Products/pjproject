@@ -40,9 +40,11 @@
 //#  define puts(s) {puts(s);fflush(stdout);}
 //#endif
 
+#if 0
 static pj_status_t send_scaip_im_str(const char* const sip_address);
-static pj_status_t send_scaip_im(const struct ssapmsg_iface* const msg);
+static pj_status_t send_scaip_im(const ssapmsg_datagram_t* const msg);
 static pj_status_t make_scaip_call(const char* const call_data);
+#endif
 
 static pj_bool_t	cmd_echo;
 
@@ -1846,8 +1848,8 @@ void legacy_main(void)
 			pj_str_t inp;
 
 #if ENABLE_PJSUA_SSAP
-	struct ssapmsg_iface msg;
-	struct ssapmsg_datagram msg_inp;
+	//struct ssapmsg_iface msg;
+	ssapmsg_datagram_t msg_inp;
 
 	const pj_status_t inp_length = ssapmsg_receive(&msg_inp);
 	if(inp_length == -1) {
@@ -1855,15 +1857,15 @@ void legacy_main(void)
 		continue;
 	}
 
-	//ssapmsg_print((struct ssapmsg_datagram*) inp_raw);
+	//ssapmsg_print((ssapmsg_datagram_t*) inp_raw);
 	ssapmsg_print(&msg_inp);
 
 	//pj_status_t result = ssapmsg_parse(&msg, inp_raw, inp_length);
-	pj_status_t result = ssapmsg_parse(&msg, &msg_inp, inp_length);
-	if(result == PJ_SUCCESS) {
+	//pj_status_t result = ssapmsg_parse(&msg, &msg_inp);
+	//if(result == PJ_SUCCESS) {
 		//const char* res = ui_scaip_handler(inp_type, &inp_data);
 		char* app_cmd = NULL;
-		pj_status_t res = ui_scaip_handler(&msg, &app_cmd);
+		pj_status_t res = ui_scaip_handler(&msg_inp, &app_cmd);
 
 		if(res == PJ_SUCCESS && app_cmd != NULL) {
 			inp = pj_str(app_cmd);
@@ -1873,13 +1875,13 @@ void legacy_main(void)
 		else {
 			continue;
 		}
-	}
-	else {
-		PJ_LOG(3, (THIS_FILE, "Failure parsing ssapmsg with result: 0x%X", result));
-		// Kill program.
-		//strcpy(inp_raw, "q\n");
-		inp = pj_str("q\n");
-	}
+	//}
+	//else {
+	//	PJ_LOG(3, (THIS_FILE, "Failure parsing ssapmsg with result: 0x%X", result));
+	//	// Kill program.
+	//	//strcpy(inp_raw, "q\n");
+	//	inp = pj_str("q\n");
+	//}
 #else
 	const pj_ssize_t inp_length = ui_input(inp_raw, 1024);
 	if(inp_length == -1) {

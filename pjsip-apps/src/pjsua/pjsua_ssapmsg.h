@@ -1,28 +1,98 @@
 #ifndef _PJSUA_SSAPMSG_H_
 #define _PJSUA_SSAPMSG_H_
 
-enum ssapmsg_type {
+#define SSAPMSG_PROTOCOL_VERSION (0)
+
+typedef enum __attribute__((__packed__)) {
 	SSAPMSG_UNDEFINED	= 0,
-	SSAPMSG_CALL			= 1,
-	SSAPMSG_SCAIPMSG	= 2,
-	SSAPMSG_CONFIG		= 3,
-	SSAPMSG_PJSUA			= 4,
-	SSAPMSG_NO_OF_MSG_TYPES,
-	SSAPMSG_ACK				= 0xA0,
-	SSAPMSG_NACK			= 0xA1,
-	SSAPMSG_WARNING		= 0xFE,
-	SSAPMSG_ERROR			= 0xFF,
-};
+	SSAPMSG_ACK,
+	SSAPMSG_NACK,
+	SSAPMSG_WARNING,
+	SSAPMSG_ERROR,
+
+	SSAPCALL_DIAL			= 0x1000,
+	SSAPCALL_HANGUP,
+	SSAPCALL_STATUS,
+	SSAPCALL_MIC_SENSITIVITY,
+	SSAPCALL_MUTE_MIC,
+	SSAPCALL_SPEAKER_VOLUME,
+	SSAPCALL_MUTE_SPEAKER,
+	SSAPCALL_DTMF,
+	SSAPCALL_QUALITY,
+	SSAPCALL_INFO,
+
+	SSAPMSG_SCAIP			= 0x2000,
+	SSAPMSG_DTMF,
+	SSAPMSG_PLAIN,
+
+	SSAPCONFIG_QUIT		= 0x3000,
+	SSAPCONFIG_RELOAD,
+	SSAPCONFIG_STATUS,
+
+	SSAPPJSUA					= 0x4000,
+} ssapmsg_t;
+
+#define SSAPMSG_STATUS_REFERENCE 					(-1)
+#define SSAPMSG_MESSAGE_FLOW_OUT_OF_SYNC 	(-2)
+
+/* For switches
+	  case SSAPMSG_UNDEFINED:
+	  case SSAPMSG_ACK:
+	  case SSAPMSG_NACK:
+	  case SSAPMSG_WARNING:
+	  case SSAPMSG_ERROR:
+
+	  case SSAPCALL_DIAL:
+	  case SSAPCALL_HANGUP:
+		case SSAPCALL_STATUS:
+	  case SSAPCALL_MIC_SENSITIVITY:
+		case SSAPCALL_MUTE_MIC:
+	  case SSAPCALL_SPEAKER_VOLUME:
+		case SSAPCALL_MUTE_SPEAKER:
+	  case SSAPCALL_DTMF:
+	  case SSAPCALL_QUALITY:
+	  case SSAPCALL_INFO:
+
+	  case SSAPMSG_SCAIP:
+		case SSAPMSG_DTMF:
+	  case SSAPMSG_PLAIN:
+
+	  case SSAPCONFIG_QUIT:
+	  case SSAPCONFIG_RELOAD:
+	  case SSAPCONFIG_STATUS:
+
+	  case SSAPPJSUA:
+		*/
 
 // TODO: Should I have response codes in a seperate enum?:q
 
 #define SSAPMSG_PAYLOAD_BUFFER_MAX (256)
 
 /* Payload - Used to interpret incomming message. */
-struct ssapmsg_scaipmsg {
+typedef struct __attribute__((__packed__)) {
+	uint8_t data[0];
+} ssap_no_payload_t;
+
+/* Generalized wrapper for no defined data structure. */
+typedef struct __attribute__((__packed__)) {
+	/* Must be a null-terminated string. */
+	uint8_t data[0];
+} ssapmsg_raw_t;
+
+typedef struct __attribute__((__packed__)) {
+	char sip_address[0];
+} ssapcall_dial_t;
+
+typedef struct __attribute__((__packed__)) {
+	uint16_t id;
+	uint16_t state;
+	char state_text[0];
+} ssapcall_status_t;
+
+typedef struct __attribute__((__packed__)) {
 	uint16_t msg_offset;
 	char data[0];
-};
+} ssapmsg_scaip_t;
 
 /*
  * Wrapper for a legacy text-based command passed on to pjsua's text 
@@ -30,38 +100,60 @@ struct ssapmsg_scaipmsg {
  * NOTE: This has NO protection against ending in a dead-end where the 
  * program waits for more text based input. Use with care.
  */
-struct ssapmsg_pjsua {
-	/* Must be a null-terminated string. */
-	uint8_t data[0];
-};
 
-struct ssapmsg_response {
+typedef struct __attribute__((__packed__)) {
 	pj_status_t code;
 	char* msg[0];
-};
+} ssapmsg_status_t;
 
 union ssapmsg_payload {
-	struct ssapmsg_scaipmsg scaipmsg;
-	struct ssapmsg_pjsua pjsua;
-	struct ssapmsg_response response;
+	ssap_no_payload_t undefined;
+	ssapmsg_status_t ack;
+	ssapmsg_status_t nack;
+	ssapmsg_status_t warning;
+	ssapmsg_status_t error;
+
+	ssapcall_dial_t call_dial;
+	ssap_no_payload_t call_hangup;
+	ssapcall_status_t call_status;
+	ssap_no_payload_t call_mic_sensitivity;
+	ssap_no_payload_t call_mute_mic;
+	ssap_no_payload_t call_speaker_volume;
+	ssap_no_payload_t call_mute_speaker;
+	ssap_no_payload_t call_dtmf;
+	ssap_no_payload_t call_quality;
+	ssap_no_payload_t call_info;
+
+	ssapmsg_scaip_t msg_scaip;
+	ssap_no_payload_t msg_dtmf;
+	ssap_no_payload_t msg_plain;
+
+	ssap_no_payload_t config_quit;
+	ssap_no_payload_t config_reload;
+	ssap_no_payload_t config_status;
+
+	ssapmsg_raw_t pjsua;
 	uint8_t raw[SSAPMSG_PAYLOAD_BUFFER_MAX];	// Max payload buffer.
 };
 
-struct ssapmsg_datagram {
-	uint32_t ref;
-	enum ssapmsg_type type;
-	uint32_t payload_size;
+typedef struct __attribute__((__packed__)) {
+	int16_t ref;
+	uint16_t protocol_version;
+	ssapmsg_t type;
+	uint16_t payload_size;
 	uint32_t crc;
 	union ssapmsg_payload payload;
-};
+} ssapmsg_datagram_t;
 
 
+#if 0
 /* Interface to received data for all types. */
 struct ssapmsg_iface {
-	uint32_t ref;
-	enum ssapmsg_type type;
+	uint16_t ref;
+	ssapmsg_t type;
 	union {
-		// scaip message
+		struct
+		// msg_scaip
 		struct {
 			char* address;
 			char* msg;
@@ -72,26 +164,40 @@ struct ssapmsg_iface {
 		};
 	};
 };
+#endif
 
 
-#define SSAPMSG_HEADER_SIZE (sizeof(struct ssapmsg_datagram) - sizeof(union ssapmsg_payload))
+#define SSAPMSG_HEADER_SIZE (sizeof(ssapmsg_datagram_t) - sizeof(union ssapmsg_payload))
+#define SSAPMSG_MAX_PAYLOAD_SIZE (256)
+#define SSAPMSG_VARDATA_SIZE(msg_type) (SSAPMSG_MAX_PAYLOAD_SIZE - sizeof(msg_type))
 
-char* ssapmsgtype_str(enum ssapmsg_type type);
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, struct ssapmsg_datagram* datagram);
-void ssapmsg_print(const struct ssapmsg_datagram* const msg);
-void update_crc32(struct ssapmsg_datagram* const ssapmsg);
-pj_status_t validate_ssapmsg_crc(struct ssapmsg_datagram* const ssapmsg);
+void pjstr_extract(char* const dst, const pj_str_t* const pj_str, const ssize_t max_length);
+
+char* ssapmsgtype_str(ssapmsg_t type);
+//pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, ssapmsg_datagram_t* datagram);
+void ssapmsg_print(ssapmsg_datagram_t* const msg);
+void update_crc32(ssapmsg_datagram_t* const ssapmsg);
+pj_status_t validate_ssapmsg_crc(ssapmsg_datagram_t* const ssapmsg);
+
+void ssapmsg_clone(ssapmsg_datagram_t* const dst, const ssapmsg_datagram_t* const src);
+pj_bool_t ssapmsg_is_status(const ssapmsg_datagram_t* const d);
+
+pj_ssize_t ssapmsg_datagram_size(const ssapmsg_datagram_t* const msg);
+const char* const ssapmsg_scaip_address(const ssapmsg_datagram_t* msg);
+const char* const ssapmsg_scaip_message(const ssapmsg_datagram_t* msg);
 
 
-pj_status_t ssapmsg_receive(struct ssapmsg_datagram* const msg);
-pj_ssize_t ssapmsg_send(struct ssapmsg_datagram* const msg);
+pj_status_t ssapmsg_receive(ssapmsg_datagram_t* const msg);
+pj_ssize_t ssapmsg_send(ssapmsg_datagram_t* const msg);
+pj_status_t ssapmsg_response_send(const pj_status_t status, const char* const msg);
 
 //TODO: Should you implement these? Do pjsua ever need to send these to SSAP?
 //pj_ssize_t ssapmsg_send_call(const struct ssapmsg_call* const msg);
 //pj_ssize_t ssapmsg_send_config(const struct ssapmsg_config* const msg);
 //pj_ssize_t ssapmsg_send_pjsua_response(const struct ssapmsg_pjsua* const msg);
-pj_status_t ssapmsg_response_send(const pj_status_t resp, const char* const message);
-pj_ssize_t ssapmsg_scaipmsg_send(const char* const addr, const char* const msg);
+pj_status_t ssapcall_dial_send(const char* const addr);
+pj_status_t ssapcall_status_send(const pjsua_call_info* const call_state);
+pj_status_t ssapmsg_scaip_send(const char* const addr, const char* const msg);
 
 #endif /* _PJSUA_SSAPMSG_H_ */
 

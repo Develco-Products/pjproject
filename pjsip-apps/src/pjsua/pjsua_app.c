@@ -210,12 +210,14 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e)
 	 * Moved to on_stream_destroyed() since media has been deactivated
 	 * upon disconnection.
 	 */
+#if 0
 	if (0) {
 	    PJ_LOG(5,(THIS_FILE, 
 		      "Call %d disconnected, dumping media stats..", 
 		      call_id));
 	    log_call_dump(call_id);
 	}
+#endif
 
     } else {
 
@@ -268,6 +270,10 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e)
 		      (int)call_info.state_text.slen,
 		      call_info.state_text.ptr));
 	}
+
+	/* Inform SSAP about state change. */
+	// TODO: Add async message handling.
+	//ssapcall_status_send(&call_info);
 
 	if (current_call==PJSUA_INVALID_ID)
 	    current_call = call_id;
@@ -715,7 +721,7 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 		//data_output("%s", pj_strbuf(text));
 		//
 		/* Compile data send back to host. */
-		ssapmsg_scaipmsg_send(pj_strbuf(from), pj_strbuf(text));
+		ssapmsg_scaip_send(pj_strbuf(from), pj_strbuf(text));
 }
 
 

@@ -119,6 +119,8 @@ pj_status_t update_ssap_iface(void) {
     case CONN_STATE_WAITING:
       /* Wait for client connections */
       {
+        // TODO: Add check for allowing remote connections.
+
         int c = sizeof( pj_sockaddr_in );
         pj_sockaddr_in client_addr;
         pj_str_t msg_buffer;
@@ -228,6 +230,7 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
     case PJ_SUCCESS:
       inp[*lim] = '\0';
       PJ_LOG(3, (THIS_FILE, "received %d bytes", *lim));
+#if 0
       for(i=0; i<*lim; i+=16) {
         PJ_LOG(3, (THIS_FILE, "%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
               (i +0 <*lim ? (uint8_t)inp[i +0]  : 255),
@@ -248,6 +251,8 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
               (i +15<*lim ? (uint8_t)inp[i +15] : 255)
               ));
       }
+#endif
+      print_raw_hex(inp, *lim);
       break;
     case PJ_STATUS_FROM_OS(OSERR_EWOULDBLOCK):
       /* fall through */
@@ -269,7 +274,7 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
         PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
 
         const char* const quit_cmd = "q\n";
-        struct ssapmsg_datagram msg = { 
+        ssapmsg_datagram_t msg = { 
           .ref = 0u,
           .type = SSAPMSG_PJSUA,
           .payload_size = strlen(quit_cmd) +1
@@ -318,4 +323,20 @@ void ssapsock_send_blind(const void* const data, pj_ssize_t len) {
 }
 
 
+void print_raw_hex(const uint8_t* const data, pj_ssize_t len) {
+	if(len < 0) { return; }
+
+	// buffer size of 3B for each entry +null.
+#define LINE_WIDTH 16
+	char buffer[3 * LINE_WIDTH +1] = { '\0' };
+	for(pj_ssize_t i = 0; i < len; i+=LINE_WIDTH) {
+		char* p = buffer;
+		for(int j=0; j<LINE_WIDTH && i+j < len; ++j) {
+			sprintf(p, "%02X ", data[i+j]);
+      p += 3;
+		}
+		PJ_LOG(3, (THIS_FILE, "%s", buffer));
+	}
+#undef LINE_WIDTH
+}
 
