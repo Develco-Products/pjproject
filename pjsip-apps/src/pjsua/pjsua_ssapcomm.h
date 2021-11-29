@@ -55,7 +55,7 @@ pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len);
 void ssapsock_send_blind(const void* const data, pj_ssize_t len);
 void ui_scaip_handler_str_input(const char* const inp);
 void ui_scaip_keystroke_help(void);
-void print_raw_hex(const uint8_t* const data, pj_ssize_t len);
+void print_raw_hex(const void* const data, pj_ssize_t len);
 
 #if UI_SOCKET
 extern char dp_print_buffer[1024];

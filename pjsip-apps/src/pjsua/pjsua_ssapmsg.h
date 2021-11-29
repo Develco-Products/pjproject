@@ -28,6 +28,12 @@ typedef enum __attribute__((__packed__)) {
 	SSAPCONFIG_QUIT		= 0x3000,
 	SSAPCONFIG_RELOAD,
 	SSAPCONFIG_STATUS,
+	SSAPCONFIG_ACCOUNT_ADD,
+	SSAPCONFIG_ACCOUNT_DELETE,
+	SSAPCONFIG_ACCOUNT_INFO,
+	SSAPCONFIG_BUDDY_ADD,
+	SSAPCONFIG_BUDDY_DELETE,
+	SSAPCONFIG_BUDDY_INFO,
 
 	SSAPPJSUA					= 0x4000,
 } ssapmsg_t;
@@ -60,6 +66,12 @@ typedef enum __attribute__((__packed__)) {
 	  case SSAPCONFIG_QUIT:
 	  case SSAPCONFIG_RELOAD:
 	  case SSAPCONFIG_STATUS:
+		case SSAPCONFIG_ACCOUNT_ADD:
+		case SSAPCONFIG_ACCOUNT_DELETE:
+		case SSAPCONFIG_ACCOUNT_INFO:
+		case SSAPCONFIG_BUDDY_ADD:
+		case SSAPCONFIG_BUDDY_DELETE:
+		case SSAPCONFIG_BUDDY_INFO:
 
 	  case SSAPPJSUA:
 		*/
@@ -93,6 +105,11 @@ typedef struct __attribute__((__packed__)) {
 	uint16_t msg_offset;
 	char data[0];
 } ssapmsg_scaip_t;
+
+typedef struct __attribute__((__packed__)) {
+	uint16_t buddy_id;
+	char* sip_address[0];
+}	ssapconfig_buddy_info;
 
 /*
  * Wrapper for a legacy text-based command passed on to pjsua's text 
@@ -131,6 +148,12 @@ union ssapmsg_payload {
 	ssap_no_payload_t config_quit;
 	ssap_no_payload_t config_reload;
 	ssap_no_payload_t config_status;
+	ssap_no_payload_t config_account_add;
+	ssap_no_payload_t config_account_del;
+	ssap_no_payload_t config_account_info;
+	ssapconfig_buddy_info config_buddy_add;
+	ssapconfig_buddy_info config_buddy_del;
+	ssapconfig_buddy_info config_buddy_info;
 
 	ssapmsg_raw_t pjsua;
 	uint8_t raw[SSAPMSG_PAYLOAD_BUFFER_MAX];	// Max payload buffer.

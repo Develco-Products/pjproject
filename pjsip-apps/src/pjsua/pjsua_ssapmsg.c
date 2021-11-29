@@ -117,6 +117,24 @@ char* ssapmsgtype_str(ssapmsg_t type) {
 	  case SSAPCONFIG_STATUS:
 	  	ret = "SSAPCONFIG_STATUS";
       break;
+		case SSAPCONFIG_ACCOUNT_ADD:
+			ret = "SSAPCONFIG_ACCOUNT_ADD";
+      break;
+		case SSAPCONFIG_ACCOUNT_DELETE:
+			ret = "SSAPCONFIG_ACCOUNT_DELETE";
+      break;
+		case SSAPCONFIG_ACCOUNT_INFO:
+			ret = "SSAPCONFIG_ACCOUNT_INFO";
+      break;
+		case SSAPCONFIG_BUDDY_ADD:
+			ret = "SSAPCONFIG_BUDDY_ADD";
+      break;
+		case SSAPCONFIG_BUDDY_DELETE:
+			ret = "SSAPCONFIG_BUDDY_DELETE";
+      break;
+		case SSAPCONFIG_BUDDY_INFO:
+			ret = "SSAPCONFIG_BUDDY_INFO";
+      break;
 
 	  case SSAPPJSUA:
 	  	ret = "SSAPPJSUA";
@@ -130,94 +148,8 @@ char* ssapmsgtype_str(ssapmsg_t type) {
   return ret;
 }
 
-#if 0
-pj_status_t ssapmsg_parse(struct ssapmsg_iface* dst, ssapmsg_datagram_t* datagram) {
-  pj_status_t res = PJ_SUCCESS;
-
-  dst->ref  = datagram->ref;
-  dst->type = datagram->type;
-
-  /* Add any special handling of specific payload types. */
-  switch(datagram->type) {
-	  case SSAPMSG_UNDEFINED:
-	  case SSAPMSG_ACK:
-	  case SSAPMSG_NACK:
-	  case SSAPMSG_WARNING:
-	  case SSAPMSG_ERROR:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
-      res = PJ_EINVAL;
-      break;
-
-	  case SSAPCALL_DIAL:
-
-
-	  case SSAPCALL_HANGUP:
-	  case SSAPCALL_MIC_SENSITIVITY:
-	  case SSAPCALL_SPEAKER_VOLUME:
-	  case SSAPCALL_DTMF:
-	  case SSAPCALL_QUALITY:
-	  case SSAPCALL_INFO:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
-      res = PJ_EINVAL;
-      break;
-
-	  case SSAPMSG_SCAIP:
-      /* Initialize address and message pointers to correct points in the data buffer. */
-      if(datagram->payload.msg_scaip.msg_offset >= datagram->payload_size) {
-        PJ_LOG(3, (THIS_FILE, "Contents of scaip message corrupted."));
-        res = PJ_EINVAL;
-      }
-      else {
-        dst->address = datagram->payload.msg_scaip.data;
-        dst->msg = datagram->payload.msg_scaip.data + datagram->payload.msg_scaip.msg_offset;
-        res = PJ_SUCCESS;
-      }
-      break;
-	  case SSAPMSG_PLAIN:
-
-	  case SSAPCONFIG_QUIT:
-	  case SSAPCONFIG_RELOAD:
-	  case SSAPCONFIG_STATUS:
-      PJ_LOG(3, (THIS_FILE, "Parsing not implemented for: %s", ssapmsgtype_str(datagram->type)));
-      res = PJ_EINVAL;
-      break;
-
-	  case SSAPPJSUA:
-      // pjsua commands are textbased, so ensure null-termination.
-      dst->data = datagram->payload.pjsua.data;
-      //dst->raw[hdr->payload_size] = '\0';
-      res = PJ_SUCCESS;
-      break;
-
-    defualt:
-      PJ_LOG(3, (THIS_FILE, "Invalid payload type (%d) in header.", datagram->type));
-      res = PJ_EINVAL;
-      break;
-  }
-
-  return res;
-}
-#endif
-
 void ssapmsg_print(ssapmsg_datagram_t* const msg) {
   char buffer[1024];
-
-#if 0
-  PJ_LOG(3, (THIS_FILE, "Info ---------------------"));
-  PJ_LOG(3, (THIS_FILE, "  sizeof datagrame	:  %d / 0x%X", sizeof(ssapmsg_datagram_t), sizeof(ssapmsg_datagram_t)));
-  PJ_LOG(3, (THIS_FILE, "  sizeof payload   :  %d / 0x%X", sizeof(union ssapmsg_payload), sizeof(union ssapmsg_payload)));
-  PJ_LOG(3, (THIS_FILE, "  sizeof header    :  %d / 0x%X", SSAPMSG_HEADER_SIZE, SSAPMSG_HEADER_SIZE));
-  PJ_LOG(3, (THIS_FILE, "--------------------------"));
-
-	ssapmsg_datagram_t d;
-	d.ref = 0x1122;
-	d.protocol_version = 0x3344;
-	d.type = SSAPCONFIG_STATUS;
-	d.payload_size = 0x5566;
-	d.crc = 0x778899AA;
-	d.payload.msg_scaip.msg_offset = 0xBBCC;
-	print_raw_hex((uint8_t*) &d, 64);
-#endif
 
   PJ_LOG(3, (THIS_FILE, "SSAP Message -------------"));
   PJ_LOG(3, (THIS_FILE, "Header"));
@@ -275,6 +207,12 @@ void ssapmsg_print(ssapmsg_datagram_t* const msg) {
 	  case SSAPCONFIG_QUIT:
 	  case SSAPCONFIG_RELOAD:
 	  case SSAPCONFIG_STATUS:
+		case SSAPCONFIG_ACCOUNT_ADD:
+		case SSAPCONFIG_ACCOUNT_DELETE:
+		case SSAPCONFIG_ACCOUNT_INFO:
+		case SSAPCONFIG_BUDDY_ADD:
+		case SSAPCONFIG_BUDDY_DELETE:
+		case SSAPCONFIG_BUDDY_INFO:
       PJ_LOG(3, (THIS_FILE, "  - not implemented -"));
       break;
 

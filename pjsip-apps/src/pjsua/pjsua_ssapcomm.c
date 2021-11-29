@@ -323,7 +323,7 @@ void ssapsock_send_blind(const void* const data, pj_ssize_t len) {
 }
 
 
-void print_raw_hex(const uint8_t* const data, pj_ssize_t len) {
+void print_raw_hex(const void* const data, pj_ssize_t len) {
 	if(len < 0) { return; }
 
 	// buffer size of 3B for each entry +null.
@@ -332,7 +332,7 @@ void print_raw_hex(const uint8_t* const data, pj_ssize_t len) {
 	for(pj_ssize_t i = 0; i < len; i+=LINE_WIDTH) {
 		char* p = buffer;
 		for(int j=0; j<LINE_WIDTH && i+j < len; ++j) {
-			sprintf(p, "%02X ", data[i+j]);
+			sprintf(p, "%02X ", ((uint8_t*)data)[i+j]);
       p += 3;
 		}
 		PJ_LOG(3, (THIS_FILE, "%s", buffer));

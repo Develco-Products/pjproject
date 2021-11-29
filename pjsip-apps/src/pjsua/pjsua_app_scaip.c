@@ -157,6 +157,44 @@ void ui_handle_scaip_cmd(const char* const inp) {
   }
 }
 
+pj_status_t ui_scaip_buddy_add(const char* const sip_address) {
+  pjsua_buddy_id id;
+  pjsua_buddy_config cfg;
+  pj_status_t res;
+
+  res = pjsua_verify_url(sip_address);
+  if(res != PJ_SUCCESS) {
+    PJ_LOG(3, (THIS_FILE, "Invalid sip address: %s", sip_address));
+    return res;
+  }
+
+  pj_bzero(&cfg, sizeof(pjsua_buddy_config));
+  //cfg.uri = pj_cstr(sip_address);
+  pj_cstr(&cfg.uri, sip_address);
+  cfg.subscribe = PJ_TRUE;
+
+  return pjsua_buddy_add(&cfg, &id);
+}
+
+pj_status_t ui_scaip_buddy_del(pjsua_buddy_id id) {
+  pj_status_t res = pjsua_buddy_is_valid(id);
+  if(res == PJ_SUCCESS) {
+    pjsua_buddy_del(id);
+  }
+  else {
+    PJ_LOG(3, (THIS_FILE, "Invalid buddy ID: %d", id));
+  }
+  return res;
+}
+
+pj_status_t ui_scaip_buddy_info(pjsua_buddy_info* const buddy_info, pjsua_buddy_id id) {
+  pj_status_t res = pjsua_buddy_is_valid(id);
+  if(res == PJ_SUCCESS) {
+    res = pjsua_buddy_get_info(id, buddy_info);
+  }
+  return res;
+}
+
 #if ENABLE_PJSUA_SSAP
 pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, char** app_cmd) {
   pj_status_t res = -1;
@@ -226,6 +264,12 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, char** app_cmd
 	  case SSAPCONFIG_QUIT:
 	  case SSAPCONFIG_RELOAD:
 	  case SSAPCONFIG_STATUS:
+		case SSAPCONFIG_ACCOUNT_ADD:
+		case SSAPCONFIG_ACCOUNT_DELETE:
+		case SSAPCONFIG_ACCOUNT_INFO:
+		case SSAPCONFIG_BUDDY_ADD:
+		case SSAPCONFIG_BUDDY_DELETE:
+		case SSAPCONFIG_BUDDY_INFO:
 
 	  case SSAPPJSUA:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
