@@ -284,6 +284,11 @@ PJ_INLINE(pj_size_t) pj_strlen( const pj_str_t *str )
     return str->slen;
 }
 
+PJ_INLINE(pj_bool_t) pj_strempty( const pj_str_t *str )
+{
+    return str->ptr == NULL;
+}
+
 /**
  * Return the pointer to the string data.
  *
