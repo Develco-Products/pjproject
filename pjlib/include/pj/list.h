@@ -162,6 +162,25 @@ PJ_INLINE(void) pj_list_push_front(pj_list_type *list, pj_list_type *node)
     pj_list_insert_after(list, node);
 }
 
+/**
+ * Remove and return last node in list.
+ *
+ * @param list	The list. 
+ *
+ * @return  Pointer to node removed from the list or NULL if list
+ *          is empty.
+ */
+PJ_IDECL(pj_list_type*) pj_list_pop(pj_list_type *list);
+
+/**
+ * Remove and return first node in list.
+ *
+ * @param list	The list. 
+ *
+ * @return  Pointer to node removed from the list or NULL if list
+ *          is empty.
+ */
+PJ_IDECL(pj_list_type*) pj_list_shift(pj_list_type *list);
 
 /**
  * Insert all nodes in \a nodes to the target list.
@@ -257,6 +276,19 @@ PJ_IDECL(pj_list_type*) pj_list_search(pj_list_type *list, void *value,
  * @return	    Number of elements.
  */
 PJ_IDECL(pj_size_t) pj_list_size(const pj_list_type *list);
+
+/**
+ * Helper for traversingn the list.
+ * Returns pointer to next node in list or NULL for end of list.
+ * Get first node by parsing NULL as node pointer.
+ *
+ * @param list	    The list head.
+ * @param node	    Link to current point in list or NULL for start
+ *                  of list.
+ *
+ * @return	    Pointer to next node in list or NULL for end of list.
+ */
+PJ_IDECL(pj_list_type*) pj_list_traverse(const pj_list_type *list, const pj_list_type *node);
 
 
 /**

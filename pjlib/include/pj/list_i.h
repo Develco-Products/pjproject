@@ -50,6 +50,30 @@ PJ_IDEF(void) pj_list_insert_nodes_after(pj_list_type *pos, pj_list_type *lst)
     pj_link_node(lst_last, pos_next);
 }
 
+PJ_IDEF(pj_list_type*) pj_list_pop(pj_list_type *list)
+{
+    if(!pj_list_empty(list)) {
+        pj_list* n = ((pj_list*)list)->prev; 
+        pj_list_erase(n);
+        return (pj_list_type*) n;
+    }
+    else {
+        return NULL;
+    }
+}
+
+PJ_IDEF(pj_list_type*) pj_list_shift(pj_list_type *list)
+{
+    if(!pj_list_empty(list)) {
+        pj_list* n = ((pj_list*)list)->next;
+        pj_list_erase(n);
+        return (pj_list_type*) n;
+    }
+    else {
+        return NULL;
+    }
+}
+
 PJ_IDEF(void) pj_list_insert_nodes_before(pj_list_type *pos, pj_list_type *lst)
 {
     pj_list_insert_nodes_after(((pj_list*)pos)->prev, lst);
@@ -118,4 +142,18 @@ PJ_IDEF(pj_size_t) pj_list_size(const pj_list_type *list)
 
     return count;
 }
+
+PJ_IDEF(pj_list_type*) pj_list_traverse(const pj_list_type *list, const pj_list_type *node)
+{
+    if(node == NULL) {
+        return ((pj_list*)list)->next;
+    }
+    else if(((pj_list*)node)->next == list) {
+        return NULL;
+    }
+    else {
+        return ((pj_list*)node)->next;
+    }
+}
+
 
