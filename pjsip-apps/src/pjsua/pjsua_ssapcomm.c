@@ -9,6 +9,7 @@
 #include "pj/types.h"
 //#include "pjsua_ssapmsg.h"
 #include "pjsua_app_scaip.h"
+#include "pjsua_ssaperr.h"
 
 #define THIS_FILE "pjsua_ssapcomm"
 
@@ -24,6 +25,13 @@
 //#  define puts(s) {puts(s);fflush(stdout);}
 //#endif
 
+#define TRANSMISSION_QUEUE_SIZE 1024
+
+// global
+// ssap_mem - global memory pool for pjsua-ssap.
+// located in pjsua_app_legacy.c
+extern pj_caching_pool ssap_mem;
+
 /* socket descriptors */
 static pj_sock_t host_socket;
 static pj_sock_t client_socket;
@@ -35,9 +43,31 @@ static enum conn_state {
   CONN_STATE_NOT_CONNECTED,
   CONN_STATE_LISTENING,
   CONN_STATE_WAITING,
+  CONN_STATE_START_TRANSMITTER,
   CONN_STATE_CONNECTED,
+  CONN_STATE_DISCONNECTED,
   CONN_STATE_ERROR
 } conn_state = CONN_STATE_NOT_INITIALIZED;
+
+struct transmission_queue_node {
+  PJ_DECL_LIST_MEMBER(struct transmission_queue_node);
+  pj_ssize_t len;
+  uint8_t data[0];
+};
+
+static pj_pool_t* rcv_pool = NULL;
+
+
+static pj_pool_t* pool = NULL;
+static pj_thread_t* transmitter = NULL;
+static pj_pool_t* queue_pool = NULL;
+static struct transmission_queue_node queue_head = { .len = 0 };
+static pj_mutex_t* transmitter_mut = NULL;
+
+static pj_status_t last_transmission_status = PJ_SUCCESS;
+
+static pj_status_t stop_transmitter();
+static int ssapsock_transmitter(void);
 
 
 #if UI_SOCKET
@@ -82,11 +112,12 @@ pj_status_t update_ssap_iface(void) {
       listening_port = DEFAULT_DP_PORT;
       host_socket = 0l;
       client_socket = 0l;
+      pj_list_init(&queue_head);
+
       conn_state = CONN_STATE_NOT_CONNECTED;
       /* fall through */
     case CONN_STATE_NOT_CONNECTED:
       /* Setup socket. */
-
       res = pj_sock_socket(pj_AF_INET(), pj_SOCK_STREAM(), 0, &host_socket);
       if( res != 0 ) {
         PJ_PERROR(1, (THIS_FILE, res, "Creating socket descriptor."));
@@ -125,6 +156,7 @@ pj_status_t update_ssap_iface(void) {
         pj_sockaddr_in client_addr;
         pj_str_t msg_buffer;
       
+        PJ_LOG(3, (THIS_FILE, "Waiting for incoming connection..."));
         res = pj_sock_accept( host_socket, &client_socket, &client_addr, &c );
         if( res == PJ_SUCCESS ) {
           pj_in_addr client_ip = pj_sockaddr_in_get_addr(&client_addr);
@@ -137,21 +169,61 @@ pj_status_t update_ssap_iface(void) {
         }
       }
 
+      conn_state = CONN_STATE_START_TRANSMITTER;
+      /* else: fall through */
+    case CONN_STATE_START_TRANSMITTER:
+      if(pool != NULL || transmitter != NULL || transmitter_mut != NULL) {
+        PJ_PERROR(3, (THIS_FILE, SSAP_EMEMLEAK, "Possible memory leak detected."));
+      }
+
+      pj_list_init(&queue_head);
+
+      const pj_ssize_t pool_size = PJ_THREAD_DESC_SIZE
+          + 64 // est. mutex size.
+          + TRANSMISSION_QUEUE_SIZE;
+      pool = pj_pool_create(&ssap_mem.factory, "ssap_socket", pool_size, 32, NULL);
+      if(pool == NULL) {
+        PJ_PERROR(1, (THIS_FILE, PJ_ENOMEM, "Not possible to allocate memory for socket communication."));
+        res = PJ_ENOMEM;
+        conn_state = CONN_STATE_ERROR;
+        break;
+      }
+
+      res = pj_mutex_create(pool, "transmitter_queue_lock", PJ_MUTEX_SIMPLE, &transmitter_mut);
+      if(res != PJ_SUCCESS) {
+        PJ_PERROR(3, (THIS_FILE, res, "Could not create queue mutex."));
+        conn_state = CONN_STATE_ERROR;
+        break;
+      }
+
+      res = pj_thread_create(pool, "transmitter", (pj_thread_proc*)ssapsock_transmitter, NULL, PJ_THREAD_DEFAULT_STACK_SIZE, 0, &transmitter);
+      if(res != PJ_SUCCESS) {
+        PJ_PERROR(3, (THIS_FILE, res, "Could not create transmitter thread."));
+        conn_state = CONN_STATE_ERROR;
+        break;
+      }
+
       conn_state = CONN_STATE_CONNECTED;
       /* else: fall through */
     case CONN_STATE_CONNECTED:
       /* Connection established. Do nothing. */
       break;
+    case CONN_STATE_DISCONNECTED:
+      /* Wait state while connection is shutting down. */
+      break;
     case CONN_STATE_ERROR:    /* fall through */
       res = -1;
+      break;
     default:
-      PJ_LOG(3, (THIS_FILE, "Connection state is invalid. Resetting."));
+      PJ_LOG(3, (THIS_FILE, "Connection state is invalid."));
       break;
   }
 }
 
 pj_status_t close_ssap_connection(void) {
   if( client_socket != 0l ) {
+    stop_transmitter();
+
     pj_status_t res = pj_sock_shutdown(client_socket, PJ_SHUT_RDWR);
     /* If closing the socket returns NOT_CONNECTED it has alreday been done.
      * Ignore that error. */
@@ -184,7 +256,6 @@ pj_status_t reset_ssap_connection(void) {
 }
 
 pj_status_t reset_ssap_iface(void) {
-
   pj_status_t res = close_ssap_connection();
   if( res != PJ_SUCCESS ) {
     /* Closing client connection failed. Ignore this and attempt to recover anyway. */
@@ -195,6 +266,7 @@ pj_status_t reset_ssap_iface(void) {
   res = teardown_ssap_iface();
 
   if(res == PJ_SUCCESS) {
+    pj_thread_sleep(3000);
     PJ_LOG(5, (THIS_FILE, "Restarting server."));
     res = update_ssap_iface();
   }
@@ -206,6 +278,8 @@ pj_status_t reset_ssap_iface(void) {
 }
 
 pj_status_t teardown_ssap_iface(void) {
+  stop_transmitter();
+
   pj_status_t res = pj_sock_shutdown(host_socket, PJ_SHUT_RDWR);
   if(res != PJ_SUCCESS) {
     PJ_PERROR(3, (THIS_FILE, res, "Closing host socket operations"));
@@ -220,6 +294,10 @@ pj_status_t teardown_ssap_iface(void) {
   conn_state = CONN_STATE_NOT_CONNECTED;
 
   return res;
+}
+
+pj_bool_t ssap_connection_up(void) {
+  return conn_state == CONN_STATE_CONNECTED;
 }
 
 pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
@@ -263,12 +341,17 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
       // Connection reset by peer. Reset and listen for new connection.
       /* fall through. */
     case PJ_STATUS_FROM_OS(OSERR_ENOTCONN):
+    //case PJ_STATUS_FROM_OS(9):
+    case PJ_STATUS_FROM_OS(EBADF):
+      PJ_LOG(2, (THIS_FILE, "Well, if you are not here, I don't know where you are."));
       PJ_PERROR(3, (THIS_FILE, res, "  %s ", __func__));
       reset_ssap_connection();
       break;
     case PJ_STATUS_FROM_OS(OSERR_EAFNOSUPPORT):
     case PJ_STATUS_FROM_OS(OSERR_ENOPROTOOPT):  
     case PJ_STATUS_FROM_OS(ENOTSOCK):
+    case PJ_STATUS_FROM_OS(EFAULT):
+      /* Handled at message layer. */
 #if 0
       {
         PJ_PERROR(2, (THIS_FILE, res, "  %s ", __func__));
@@ -296,30 +379,87 @@ pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim) {
   return res;
 }
 
-pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
-  LOG_DATA_OUTPUT(data);
+pj_status_t ssapsock_transmission_status() {
+  pj_status_t status;
 
-  pj_status_t res = pj_sock_send(client_socket, data, len, 0);
-  if( res == PJ_SUCCESS ) {
-    /* Set pending response token. */
-    //ssapmsg_response_pending.ref
-  }
-  else {
-    if(res == PJ_STATUS_FROM_OS(EPIPE)) {
-      PJ_PERROR(3, (THIS_FILE, res, "Pipe error (0x%X).", res));
-      /* Connection has been dropped. Reset server. */
-      reset_ssap_connection();
-    }
-    else {
-      PJ_PERROR(3, (THIS_FILE, res, "Error sending data to host (0x%X).", res));
-    }
-  }
-  return res;
+  do {
+    status = last_transmission_status;
+  } while(status != last_transmission_status);
+
+  return status;
 }
 
-/* Just throw something out there and not care how it went. */
+//pj_status_t ssapsock_queue(const void* const data, pj_ssize_t len) {
+pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
+  if(len > 0) {
+    /* Allocate new node and add the data to it. */
+    pj_mutex_lock(transmitter_mut);
+
+    if(queue_pool == NULL) {
+      PJ_LOG(3, (THIS_FILE, "Allocating memory for message queue."));
+      queue_pool = pj_pool_create(&ssap_mem.factory, "transmission_queue", TRANSMISSION_QUEUE_SIZE, TRANSMISSION_QUEUE_SIZE /2, NULL);
+      if(queue_pool == NULL) {
+        PJ_PERROR(3, (THIS_FILE, PJ_ENOMEM, "Could not allocate memory for transmission queue"));
+        return PJ_ENOMEM;
+      }
+    }
+
+    PJ_LOG(3, (THIS_FILE, "Allocating %dB of memory for message.", *len));
+    struct transmission_queue_node* node = pj_pool_alloc(queue_pool, sizeof(struct transmission_queue_node) + *len);
+    if(node == NULL) {
+      PJ_PERROR(3, (THIS_FILE, PJ_ENOMEM, "Could not allocate memory for message"));
+      return PJ_ENOMEM;
+    }
+    pj_memcpy(node->data, data, *len);
+    node->len = *len;
+    pj_list_push_back(&queue_head, node);
+    pj_mutex_unlock(transmitter_mut);
+  }
+
+  return PJ_SUCCESS;
+}
+
+
 void ssapsock_send_blind(const void* const data, pj_ssize_t len) {
   (void) ssapsock_send(data, &len);
+}
+
+
+int ssapsock_transmitter() {
+  while(conn_state != CONN_STATE_DISCONNECTED) {
+    struct transmission_queue_node* node = NULL;
+
+    pj_mutex_lock(transmitter_mut);
+    if(!pj_list_empty(&queue_head)) {
+      node = pj_list_shift(&queue_head);
+    }
+    pj_mutex_unlock(transmitter_mut);
+
+    if(node != NULL) {
+      LOG_DATA_OUTPUT(node->data);
+
+      pj_status_t res = pj_sock_send(client_socket, node->data, &node->len, 0);
+
+      pj_mutex_lock(transmitter_mut);
+      last_transmission_status = res;
+
+      /* If queue is still empty at this point, release pool. */
+      if(pj_list_empty(&queue_head)) {
+        PJ_LOG(3, (THIS_FILE, "Releasing queue pool."));
+        pj_pool_release(queue_pool);
+        queue_pool = NULL;
+      }
+      pj_mutex_unlock(transmitter_mut);
+
+      if(res != PJ_SUCCESS) {
+        PJ_PERROR(3, (THIS_FILE, res, "Error during transmission (0x%X). Suspending transmission for 60s.", res));
+        pj_thread_sleep(60000);
+      }
+    }
+    else {
+      pj_thread_sleep(500);
+    }
+  }
 }
 
 
@@ -338,5 +478,38 @@ void print_raw_hex(const void* const data, pj_ssize_t len) {
 		PJ_LOG(3, (THIS_FILE, "%s", buffer));
 	}
 #undef LINE_WIDTH
+}
+
+
+static pj_status_t stop_transmitter() {
+  /* Set state to disconnect to flag no more actions should be performed 
+   * on socket while we are shutting down. */
+  conn_state = CONN_STATE_DISCONNECTED;
+
+  if(transmitter != NULL) {
+    pj_thread_join(transmitter);
+    transmitter = NULL;
+  }
+
+  if(transmitter_mut != NULL) {
+    pj_mutex_destroy(transmitter_mut);
+    transmitter_mut = NULL;
+  }
+
+  if(pj_list_size(&queue_head) != 0) {
+    PJ_LOG(3, (THIS_FILE, "There are unsent messages in queue. Dropping them."));
+    pj_list_init(&queue_head);    // re-init list removes all nodes.
+  }
+
+  if(queue_pool != NULL) {
+    pj_pool_release(queue_pool);
+    queue_pool = NULL;
+  }
+
+  if(pool != NULL) {
+    //pjsua_release_pool(pool);
+    pj_pool_release(pool);
+    pool = NULL;
+  }
 }
 

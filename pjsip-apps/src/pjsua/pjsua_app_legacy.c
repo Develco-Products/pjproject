@@ -26,7 +26,7 @@
 #include "pjsua_app_scaip.h"
 
 #define THIS_FILE	"pjsua_app_legacy.c"
-
+#define DISABLE_APP 1
 
 /* An attempt to avoid stdout buffering for python tests:
  * - call 'fflush(stdout)' after each call to 'printf()/puts()'
@@ -47,6 +47,11 @@ static pj_status_t make_scaip_call(const char* const call_data);
 #endif
 
 static pj_bool_t	cmd_echo;
+
+
+// shared caching pool for pjsua ssap.
+#define SSAP_MEMORY_POOL_INITIAL_SIZE (10 * 1024)
+pj_caching_pool ssap_mem;
 
 
 
@@ -1820,6 +1825,52 @@ static void ui_handle_ip_change()
 /*
  * Main "user interface" loop.
  */
+#if 0
+static pj_caching_pool cp;
+static pj_pool_t* dp_mem;
+
+
+char* mem_test(const char* const str) {
+	pj_ssize_t len = strlen(str);
+	char* p = pj_pool_alloc(dp_mem, len +1);
+	strcpy(p, str);
+	p[len] = '\0';
+	return p;
+}
+
+
+static pj_sem_t* sem;
+static pj_mutex_t* mut;
+int thready() {
+	int a=0;
+
+	PJ_LOG(3, (THIS_FILE, "Taking semaphore."));
+	pj_sem_wait(sem);
+	PJ_LOG(3, (THIS_FILE, "Taking mutex"));
+	pj_mutex_lock(mut);
+
+
+	while(a < 5) {
+		PJ_LOG(3, ("thready", "Theady says: %d", a));
+		a++;
+		pj_thread_sleep(500);
+		if(a == 3) {
+			PJ_LOG(3, (THIS_FILE, "Release sem."));
+			pj_sem_post(sem);
+		}
+	}
+
+	PJ_LOG(3, ("thready", "Theady says: WHAAAATT?!?"));
+	pj_mutex_unlock(mut);
+	return PJ_SUCCESS;
+}
+
+struct node {
+	PJ_DECL_LIST_MEMBER(struct node);
+	int v;
+};
+#endif
+
 void legacy_main(void)
 {
     char menuin[1024];
@@ -1827,8 +1878,122 @@ void legacy_main(void)
     //char inp_raw[1024];
 		int error_count = 0;
 		pj_status_t status;
+		uint8_t ssapmsg_buffer[1024];
 
 
+		PJ_LOG(3, (THIS_FILE, "Init caching memory pool."));
+		pj_caching_pool_init(&ssap_mem, NULL, SSAP_MEMORY_POOL_INITIAL_SIZE);
+
+#if 0
+		pj_str_t s = pj_str(NULL);
+		PJ_LOG(3, (THIS_FILE, "NULL initiating string is: %s", (pj_strempty(&s) ? "empty" : "something else")));
+		PJ_LOG(3, (THIS_FILE, "NULL initiating has length: %d", pj_strlen(&s)));
+
+		pj_caching_pool_init(&cp, NULL, 10 * 1024);
+		PJ_LOG(3, (THIS_FILE, "Allocating memory pool."));
+		dp_mem = pj_pool_create(&cp.factory, "dp_mem_pool", 4096, 2048, NULL);
+		if(dp_mem == NULL) {
+			PJ_PERROR(1, (THIS_FILE, PJ_ENOMEM, "Error creating memory pool."));
+			goto on_exit;
+		}
+
+		char* str1 = "Hello, you magnificient bastard!";
+		char* str2 = "This is a test in case you didn't know.";
+
+		char* alloc_str1 = mem_test(str1);
+		char* alloc_str2 = mem_test(str2);
+
+		PJ_LOG(3, (THIS_FILE, "Test string 1: %s", alloc_str1));
+		PJ_LOG(3, (THIS_FILE, "Test string 2: %s", alloc_str2));
+
+
+		// Thread test
+		pj_thread_t* t;
+		pj_thread_create(dp_mem, "thready is threading", thready, NULL, PJ_THREAD_DEFAULT_STACK_SIZE, 0, &t);
+
+		pj_sem_create(dp_mem, "dp_sem", 1, 1, &sem);
+		pj_mutex_create(dp_mem, "dp_mutex", PJ_MUTEX_SIMPLE, &mut);
+
+
+		// Linked list test.
+		struct node head;
+		PJ_LOG(3, (THIS_FILE, "Linked list test."));
+		pj_list_init(&head);
+
+		PJ_LOG(3, (THIS_FILE, "Init list size: %d", pj_list_size(&head)));
+		PJ_LOG(3, (THIS_FILE, "Init node is empty list? %d", pj_list_empty(&head)));
+
+		struct node* p = pj_pool_alloc(dp_mem, sizeof(struct node));
+		p->v = 1;
+		pj_list_push_back(&head, p);
+		p = pj_pool_alloc(dp_mem, sizeof(struct node));
+		p->v = 2;
+		pj_list_push_back(&head, p);
+		PJ_LOG(3, (THIS_FILE, "List size  I: %d", pj_list_size(&head)));
+		p = pj_pool_alloc(dp_mem, sizeof(struct node));
+		p->v = 3;
+		pj_list_push_back(&head, p);
+		PJ_LOG(3, (THIS_FILE, "List size II: %d", pj_list_size(&head)));
+
+		PJ_LOG(3, (THIS_FILE, "Traverse linked list"));
+#if 0
+		p = &head;
+		for(uint8_t i=0; i<pj_list_size(list); ++i) {
+			PJ_LOG(3, (THIS_FILE, "List node: %d", p->v));
+			p = p->next;
+		}
+#endif
+		p = NULL;
+		while((p = pj_list_traverse(&head, p)) != NULL) {
+			PJ_LOG(3, (THIS_FILE, "List node: %d", p->v));
+		}
+			
+		PJ_LOG(3, (THIS_FILE, "Remove node"));
+		p = pj_list_pop(&head);
+		PJ_LOG(3, (THIS_FILE, "Pop node value: %d, list length: %d", p->v, pj_list_size(&head)));
+		p = pj_list_shift(&head);
+		PJ_LOG(3, (THIS_FILE, "Shift node value: %d, list length: %d", p->v, pj_list_size(&head)));
+
+		PJ_LOG(3, (THIS_FILE, "List size III: %d", pj_list_size(&head)));
+		PJ_LOG(3, (THIS_FILE, "Traverse linked list"));
+#if 0 
+		for(uint8_t i=0; i<pj_list_size(list); ++i) {
+			PJ_LOG(3, (THIS_FILE, "List node: %d", p->v));
+			p = p->next;
+		} 
+#endif
+		p = NULL;
+		while((p = pj_list_traverse(&head, p)) != NULL) {
+			PJ_LOG(3, (THIS_FILE, "List node: %d", p->v));
+		}
+
+		pj_list_init(&head);
+		PJ_LOG(3, (THIS_FILE, "List size IV: %d", pj_list_size(&head)));
+
+		for(int i=0; i!=5; ++i) {
+			p = pj_pool_alloc(dp_mem, sizeof(struct node));
+			p->v = 1;
+			pj_list_push_back(&head, p);
+		}
+
+		for(int i=0; i!=7; ++i) {
+			p = pj_list_shift(&head);
+			PJ_LOG(3, (THIS_FILE, "Shift node value: %d, list length: %d", (p != NULL ? p->v : -1), pj_list_size(&head)));
+		}
+
+		PJ_LOG(3, (THIS_FILE, "List size IV: %d", pj_list_size(&head)));
+
+
+#if 0
+		PJ_LOG(3, (THIS_FILE, "list prev: 0x%X", list->prev));
+		PJ_LOG(3, (THIS_FILE, "list next: 0x%X", list->next));
+		PJ_LOG(3, (THIS_FILE, "p 		prev: 0x%X", p->prev));
+		PJ_LOG(3, (THIS_FILE, "p 		next: 0x%X", p->next));
+#endif
+
+#endif	
+			
+#if DISABLE_APP
 #if UI_SOCKET
     //dp_init();
     //wait_for_connection();
@@ -1838,6 +2003,23 @@ void legacy_main(void)
 			teardown_ssap_iface();
 			return;
 		}
+
+		uint8_t wait_count = 0;
+		while(!ssap_connection_up() && wait_count < 30) {
+			PJ_LOG(3, (THIS_FILE, "Waiting for interface to come up..."));
+			wait_count++;
+			if(wait_count % 10 == 0) {
+				reset_ssap_iface();
+			}
+			pj_thread_sleep(1000);
+		}
+
+		if(!ssap_connection_up()) {
+			PJ_LOG(1, (THIS_FILE, "Could not start pjsua app. Aborting..."));
+			teardown_ssap_iface();
+			return;
+		}
+#endif
 #endif
 
 			
@@ -1847,13 +2029,36 @@ void legacy_main(void)
     for (;;) {
 			pj_str_t inp;
 
+#if DISABLE_APP
 #if ENABLE_PJSUA_SSAP
 	//struct ssapmsg_iface msg;
 	ssapmsg_datagram_t msg_inp;
 
-	const pj_status_t inp_length = ssapmsg_receive(&msg_inp);
-	if(inp_length == -1) {
-		PJ_LOG(3, (THIS_FILE, "Something went wrong during reception."));
+	/* Check for transmission status. */
+	pj_status_t transmission_status = ssapsock_transmission_status();
+	if(transmission_status != PJ_SUCCESS) {
+		PJ_LOG(3, (THIS_FILE, "Transmission has failed."));
+    if(transmission_status == PJ_STATUS_FROM_OS(EPIPE)) {
+      PJ_PERROR(3, (THIS_FILE, transmission_status, "Pipe error (0x%X).", transmission_status));
+      /* Connection has been dropped. Reset server. */
+      reset_ssap_connection();
+    }
+    else {
+      PJ_PERROR(3, (THIS_FILE, transmission_status, "Error sending data to host (0x%X).", transmission_status));
+    }
+	}
+
+	/* Handle input from ssap. */
+	const pj_status_t recv_status = ssapmsg_receive(&msg_inp);
+	if(recv_status != PJ_SUCCESS) {
+		if(recv_status == PJ_EINVAL) {
+			/* Probably connection state is dangling. 
+			 * Keeps receiving packets of 0 bytes. Restart connection.*/
+			reset_ssap_connection();
+		}
+		else {
+			PJ_PERROR(3, (THIS_FILE, recv_status, "Something went wrong during reception."));
+		}
 		continue;
 	}
 
@@ -1864,13 +2069,33 @@ void legacy_main(void)
 	//pj_status_t result = ssapmsg_parse(&msg, &msg_inp);
 	//if(result == PJ_SUCCESS) {
 		//const char* res = ui_scaip_handler(inp_type, &inp_data);
-		char* app_cmd = NULL;
-		pj_status_t res = ui_scaip_handler(&msg_inp, &app_cmd);
+		//char* app_cmd = NULL;
+		//pj_str_t app_cmd;
+		pj_status_t res = ui_scaip_handler(&msg_inp, &inp);
 
-		if(res == PJ_SUCCESS && app_cmd != NULL) {
-			inp = pj_str(app_cmd);
-			pj_strtrim( &inp );
-			PJ_LOG(3, (THIS_FILE, "Input received in legacy app: %s", pj_strbuf(&inp)));
+		if(res == PJ_SUCCESS) {
+			/* Check if additional processing is required. */
+			switch(msg_inp.type) {
+				case SSAPCONFIG_QUIT:
+				case SSAPCONFIG_RELOAD:
+					/* close app. */
+					goto on_exit;
+					break;
+				case SSAPPJSUA:
+					//if(app_cmd != NULL) {
+					if(!pj_strempty(&inp)) {
+						//inp = pj_str(app_cmd);
+						pj_strtrim( &inp );
+						PJ_LOG(3, (THIS_FILE, "Input received in legacy app: %s", pj_strbuf(&inp)));
+					}
+					else {
+						continue;
+					}
+					break;
+				default:
+					continue;
+					break;
+			}
 		}
 		else {
 			continue;
@@ -1895,6 +2120,19 @@ void legacy_main(void)
 
 	pj_memcpy(menuin, pj_strbuf(&inp), pj_strlen(&inp));
 	menuin[pj_strlen(&inp)] = '\0';
+#else
+	PJ_LOG(3, (THIS_FILE, "Trying to take semaphore."));
+	pj_sem_wait(sem);
+	PJ_LOG(3, (THIS_FILE, "Trying to take mutex."));
+	pj_mutex_lock(mut);
+
+
+	PJ_LOG(3, (THIS_FILE, "Waiting for theady to join..."));
+	pj_thread_join(t);
+	pj_memcpy(menuin, "q\n", 3);
+
+	//inp = pj_str("q\n");
+#endif
 
 	if (cmd_echo) {
 	    printf("%s", menuin);
@@ -2168,8 +2406,22 @@ void legacy_main(void)
     }
 
 on_exit:
+#if DISABLE_APP
 #if UI_SOCKET
     teardown_ssap_iface();
+
 #endif
+#endif
+
+#if 0
+		pj_sem_destroy(sem);
+		pj_mutex_destroy(mut);
+
+		pj_pool_release(dp_mem);
+#endif
+
+		PJ_LOG(3, (THIS_FILE, "Destroy caching memory pool."));
+		pj_caching_pool_destroy(&ssap_mem);
+
     ;
 }

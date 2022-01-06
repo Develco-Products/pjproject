@@ -272,8 +272,7 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e)
 	}
 
 	/* Inform SSAP about state change. */
-	// TODO: Add async message handling.
-	//ssapcall_status_send(&call_info);
+	ssapmsg_send_status(SSAPCALL_STATUS, &call_info);
 
 	if (current_call==PJSUA_INVALID_ID)
 	    current_call = call_id;
@@ -346,6 +345,15 @@ static void on_incoming_call(pjsua_acc_id acc_id, pjsua_call_id call_id,
 	}
 #endif
 
+#if ENABLE_PJSUA_SSAP
+	ssapcall_dial_t dial = {
+		.id = call_info.id,
+		.acc_id = call_info.acc_id,
+		.sip_address = call_info.remote_info
+	};
+	
+	ssapmsg_send_request(SSAPCALL_DIAL, &dial);
+#else
 	data_output("Incoming call for account %d!\n"
 		  "Media count: %d audio & %d video\n"
 		  "%s"
@@ -362,6 +370,7 @@ static void on_incoming_call(pjsua_acc_id acc_id, pjsua_call_id call_id,
 		  call_info.local_info.ptr,
 		  (app_config.use_cli?"ca a":"a"),
 		  (app_config.use_cli?"g":"h"));
+#endif
     }
 }
 
@@ -718,10 +727,17 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 	      (int)text->slen, text->ptr,
 	      (int)mime_type->slen, mime_type->ptr));
 
-		//data_output("%s", pj_strbuf(text));
-		//
+#if ENABLE_PJSUA_SSAP
 		/* Compile data send back to host. */
-		ssapmsg_scaip_send(pj_strbuf(from), pj_strbuf(text));
+		const ssapmsg_scaip_t scaip_msg = {
+			.receiver_url = *from,
+			.msg = *text
+		};
+
+		ssapmsg_send_reply(SSAPMSG_SCAIP, &scaip_msg);
+#else
+		data_output("%s", pj_strbuf(text));
+#endif
 }
 
 

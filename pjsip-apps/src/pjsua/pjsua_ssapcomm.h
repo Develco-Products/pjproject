@@ -49,8 +49,11 @@ pj_status_t close_ssap_connection(void);
 pj_status_t reset_ssap_connection(void);
 pj_status_t reset_ssap_iface(void);
 pj_status_t teardown_ssap_iface(void);
+pj_bool_t ssap_connection_up(void);
 
 pj_status_t ssapsock_receive(uint8_t* const inp, pj_ssize_t* lim);
+
+pj_status_t ssapsock_transmission_status();
 pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len);
 void ssapsock_send_blind(const void* const data, pj_ssize_t len);
 void ui_scaip_handler_str_input(const char* const inp);
