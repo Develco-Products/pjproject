@@ -203,7 +203,7 @@ pj_status_t ui_scaip_account_info(pjsua_acc_info* const acc) {
   }
 }
 
-pj_status_t ui_scaip_buddy_add(const ssapconfig_buddy_add_t* const buddy_add) {
+pj_status_t ui_scaip_buddy_add(const ssapconfig_buddy_add_t* const buddy_add, pjsua_buddy_id* const buddy_id) {
   pjsua_buddy_id id;
   pjsua_buddy_config cfg;
   pj_status_t res;
@@ -355,6 +355,8 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       ssapmsg_response(PJ_SUCCESS, NULL);
       pj_thread_sleep(500);
 
+      close_ssap_connection();
+      teardown_ssap_iface();
       legacy_on_stopped(PJ_FALSE);
       res = PJ_SUCCESS;
       break;
@@ -365,6 +367,9 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       /* Send response that message was received. */
       ssapmsg_response(PJ_SUCCESS, NULL);
       pj_thread_sleep(500);
+
+      close_ssap_connection();
+      teardown_ssap_iface();
 
       legacy_on_stopped(PJ_TRUE);
       res = PJ_SUCCESS;
@@ -440,14 +445,24 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
 		case SSAPCONFIG_BUDDY_ADD:
       {
         ssapconfig_buddy_add_t buddy_add;
+        pjsua_buddy_info buddy_info;
         res = ssapmsg_unpack(&buddy_add, msg);
         if(res != PJ_SUCCESS) { return res; }
 
         PJ_LOG(3, (THIS_FILE, "Adding buddy: %s", pj_strbuf(&buddy_add.sip_url)));
-        res = ui_scaip_buddy_add(&buddy_add);
+        res = ui_scaip_buddy_add(&buddy_add, &buddy_info.id);
 
-        /* Send send result. */
-        res = ssapmsg_response(res, NULL);
+        if(res == PJ_SUCCESS) {
+          res = ui_scaip_buddy_info(&buddy_info);
+          /* Send send result. */
+          //res = ssapmsg_response(res, NULL);
+          res = (res == PJ_SUCCESS)
+            ? ssapmsg_send_reply(SSAPCONFIG_BUDDY_INFO, &buddy_info)
+            : ssapmsg_response(res, "Added buddy but subsequent buddy info fetch failed.");
+        }
+        else {
+          res = ssapmsg_response(res, NULL);
+        }
         break;
       }
 		case SSAPCONFIG_BUDDY_DELETE:

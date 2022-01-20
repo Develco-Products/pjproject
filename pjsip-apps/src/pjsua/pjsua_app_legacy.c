@@ -2000,12 +2000,13 @@ void legacy_main(void)
 		status = start_ssap_iface();
 		if( status != PJ_SUCCESS ) {
 			PJ_LOG(1, (THIS_FILE, "Could not start pjsua app. Aborting..."));
-			teardown_ssap_iface();
-			return;
+			goto on_exit;
+			//teardown_ssap_iface();
+			//return;
 		}
 
 		uint8_t wait_count = 0;
-		while(!ssap_connection_up() && wait_count < 30) {
+		while(!ssap_connection_up() && wait_count < 5) {
 			PJ_LOG(3, (THIS_FILE, "Waiting for interface to come up..."));
 			wait_count++;
 			if(wait_count % 10 == 0) {
@@ -2016,8 +2017,9 @@ void legacy_main(void)
 
 		if(!ssap_connection_up()) {
 			PJ_LOG(1, (THIS_FILE, "Could not start pjsua app. Aborting..."));
-			teardown_ssap_iface();
-			return;
+			goto on_exit;
+			//teardown_ssap_iface();
+			//return;
 		}
 #endif
 #endif
@@ -2079,6 +2081,7 @@ void legacy_main(void)
 				case SSAPCONFIG_QUIT:
 				case SSAPCONFIG_RELOAD:
 					/* close app. */
+					PJ_LOG(3, (THIS_FILE, "App is shutting down."));
 					goto on_exit;
 					break;
 				case SSAPPJSUA:
@@ -2422,6 +2425,8 @@ on_exit:
 
 		PJ_LOG(3, (THIS_FILE, "Destroy caching memory pool."));
 		pj_caching_pool_destroy(&ssap_mem);
+
+		pj_thread_sleep(10000);
 
     ;
 }

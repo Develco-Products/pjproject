@@ -25,7 +25,8 @@
 //#  define puts(s) {puts(s);fflush(stdout);}
 //#endif
 
-#define TRANSMISSION_QUEUE_SIZE 1024
+#define TRANSMISSION_QUEUE_SIZE           (1024)
+#define MAX_DELAY_CONNECTING_TO_SOCKET_s  (120)
 
 // global
 // ssap_mem - global memory pool for pjsua-ssap.
@@ -124,13 +125,29 @@ pj_status_t update_ssap_iface(void) {
         break;
       }
 
+      int val=1;
+      res = pj_sock_setsockopt(host_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+      if(res == PJ_STATUS_FROM_OS(EBADF) || res == PJ_STATUS_FROM_OS(EINVAL)) {
+        PJ_PERROR(3, (THIS_FILE, res, "Error setting socket option."));
+      }
+
+      /* Try to continue on error. Address may still be free. */
+
       server_addr.sin_family = PJ_AF_INET;
       server_addr.sin_addr.s_addr = PJ_INADDR_ANY;
       server_addr.sin_port = pj_htons(listening_port);
 
       // bind
       res = pj_sock_bind(host_socket, &server_addr, sizeof(server_addr));
-      if( res != 0 ) {
+      for(int i=0; res == PJ_STATUS_FROM_OS(EADDRINUSE) && i<MAX_DELAY_CONNECTING_TO_SOCKET_s; ++i) {
+        if(i % 10 == 0) {
+          PJ_LOG(3, (THIS_FILE, "Waiting for socket address to become available."));
+        }
+        pj_thread_sleep(1000);
+        res = pj_sock_bind(host_socket, &server_addr, sizeof(server_addr));
+      }
+
+      if( res != PJ_SUCCESS ) {
         PJ_PERROR(1, (THIS_FILE, res, "Binding socket."));
         break;
       }
@@ -221,7 +238,7 @@ pj_status_t update_ssap_iface(void) {
 }
 
 pj_status_t close_ssap_connection(void) {
-  if( client_socket != 0l ) {
+  if( client_socket != 0L ) {
     stop_transmitter();
 
     pj_status_t res = pj_sock_shutdown(client_socket, PJ_SHUT_RDWR);
@@ -239,7 +256,7 @@ pj_status_t close_ssap_connection(void) {
       return res;
     }
 
-    client_socket = 0l;
+    client_socket = 0L;
     conn_state = CONN_STATE_WAITING;
   }
 
@@ -278,20 +295,25 @@ pj_status_t reset_ssap_iface(void) {
 }
 
 pj_status_t teardown_ssap_iface(void) {
-  stop_transmitter();
+  pj_status_t res = PJ_SUCCESS;
 
-  pj_status_t res = pj_sock_shutdown(host_socket, PJ_SHUT_RDWR);
-  if(res != PJ_SUCCESS) {
-    PJ_PERROR(3, (THIS_FILE, res, "Closing host socket operations"));
+  if(host_socket != 0L) {
+    stop_transmitter();
+
+    pj_status_t res = pj_sock_shutdown(host_socket, PJ_SHUT_RDWR);
+    if(res != PJ_SUCCESS) {
+      PJ_PERROR(3, (THIS_FILE, res, "Closing host socket operations"));
+    }
+
+    /* Attempt to close socket even if closing socket operations failed. */
+    res = pj_sock_close(host_socket);
+    if(res != PJ_SUCCESS) {
+      PJ_PERROR(2, (THIS_FILE, res, "Closing host socket"));
+    }
+
+    host_socket = 0L;
+    conn_state = CONN_STATE_NOT_CONNECTED;
   }
-
-  /* Attempt to close socket even if closing socket operations failed. */
-  res = pj_sock_close(host_socket);
-  if(res != PJ_SUCCESS) {
-    PJ_PERROR(2, (THIS_FILE, res, "Closing host socket"));
-  }
-
-  conn_state = CONN_STATE_NOT_CONNECTED;
 
   return res;
 }
