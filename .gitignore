@@ -37,6 +37,7 @@ config_auto.h
 sip_autoconf.h
 *.depend
 *.swp
+*.swo
 
 # Apple stuff
 *.DS_Store
