@@ -19,6 +19,7 @@ static pj_status_t send_scaip_im_str(const char* const scaip_msg);
 static pj_status_t send_scaip_im(const ssapmsg_scaip_t* const scaip_msg);
 static pj_status_t send_call_status(const ssapmsg_datagram_t* const msg);
 
+
 static pj_status_t make_scaip_call_str(const char* const call_data) {
   pj_status_t res;
   pj_str_t sip_address;
@@ -65,6 +66,36 @@ static pj_status_t make_scaip_call(const ssapcall_dial_t* const call_dial) {
   //ssapmsg_response(res, NULL);
 
   return res;
+}
+
+static pj_status_t adjust_mic_sensitivity(ssapcall_micsensitivity_t* const mic_sens) {
+  app_config.mic_level = (mic_sens->mute)
+    ? 0.0
+    : mic_sens->sensitivity;
+
+  return PJ_SUCCESS;
+}
+
+static pj_status_t current_mic_status(ssapcall_micsensitivity_t* const mic_sens) {
+  mic_sens->sensitivity = app_config.mic_level;
+  mic_sens->mute = app_config.mic_level < 0.01;
+
+  return PJ_SUCCESS;
+}
+
+static pj_status_t adjust_speaker_volume(ssapcall_speakervolume_t* const speaker_vol) {
+  app_config.speaker_level = (speaker_vol->mute)
+    ? 0.0
+    : speaker_vol->volume;
+
+  return PJ_SUCCESS;
+}
+
+static pj_status_t current_speaker_volume(ssapcall_speakervolume_t* const speaker_vol) {
+  speaker_vol->volume = app_config.speaker_level;
+  speaker_vol->mute = app_config.speaker_level < 0.01;
+
+  return PJ_SUCCESS;
 }
 
 static pj_status_t send_scaip_im_str(const char* const scaip_msg) {
@@ -157,6 +188,10 @@ pj_status_t ui_scaip_account_add(const ssapconfig_account_add_t* const acc,
   pjsua_acc_config_default(&acc_cfg);
   acc_cfg.id = acc->sip_address;
   acc_cfg.reg_uri = acc->registrar;
+  acc_cfg.unreg_timeout = 3600;
+  acc_cfg.reg_delay_before_refresh = 1800;
+  acc_cfg.proxy_cnt = 1;
+  acc_cfg.proxy[0] = pj_str("<sip:sipserver.stage.iotcomms.io;transport=tls>");
   acc_cfg.cred_count = 1;
   acc_cfg.cred_info[0].scheme = pj_str("Digest");
   acc_cfg.cred_info[0].realm = acc->auth_realm;
@@ -171,6 +206,8 @@ pj_status_t ui_scaip_account_add(const ssapconfig_account_add_t* const acc,
   if(res != PJ_SUCCESS) {
     PJ_PERROR(3, (THIS_FILE, res, "Could not add account"));
   }
+
+  pjsua_acc_set_online_status(current_acc, PJ_TRUE);
 
   return res;
 }
@@ -259,16 +296,29 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
   pj_status_t res = -1;
   PJ_LOG(3, (THIS_FILE, "Scaip command is 0x%04X", msg->type));
 
+  /* Every case have the following conditions:
+   * - On entry msg is valid, otherwise EINVAL is returned if type is corrupted.
+   * - On exit res contains if the result was successfully sent to SSAP.
+   *   - status messages are always successful.
+   *   - Not implemented operations return ENOTFOUND.
+   */
   switch( msg->type ) {
 	  case SSAPMSG_UNDEFINED:
       PJ_LOG(3, (THIS_FILE, "Scaip command is undefined. Did you mean to send this?"));
       res = PJ_EINVAL;
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(res, "SCAIP command is UNDEFINED. Did you mean to send this?");
+      }
       break;
 	  case SSAPMSG_ACK:
 	  case SSAPMSG_NACK:
 	  case SSAPMSG_WARNING:
 	  case SSAPMSG_ERROR:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(res, "SCAIP command is NOT IMPLEMENTED.");
+      }
+      res = PJ_ENOTFOUND;
       break;
 
 	  case SSAPCALL_DIAL:
@@ -282,12 +332,21 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
 
         //PJ_LOG(2, (THIS_FILE, "Dialling a new SIP call to: %s", ssapmsg_scaip_address(msg)));
         res = make_scaip_call(&call_dial);
-        ssapmsg_response(res, NULL);
+        if(ssapmsg_is_status(msg)) {
+          res = PJ_SUCCESS;
+        }
+        else {
+          res = ssapmsg_response(res, NULL);
+        }
         break;
       }
 	  case SSAPCALL_ANSWER:
 	  case SSAPCALL_HANGUP:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(res, "SCAIP command is NOT IMPLEMENTED.");
+      }
+      res = PJ_ENOTFOUND;
       break;
 
 		case SSAPCALL_STATUS:
@@ -320,13 +379,71 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       break;
 
 	  case SSAPCALL_MIC_SENSITIVITY:
-		case SSAPCALL_MUTE_MIC:
+      {
+        ssapcall_micsensitivity_t mic_sens;
+        res = ssapmsg_unpack(&mic_sens, msg);
+        if(res != PJ_SUCCESS) {
+          PJ_PERROR(3, (THIS_FILE, res, "Could not unpack %s", ssapmsgtype_str(msg->type)));
+          return res;
+        }
+
+        res = adjust_mic_sensitivity(&mic_sens);
+
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, "Could not set mic sensitivity.");
+        break;
+      }
+
+		case SSAPCALL_MIC_SENSITIVITY_INFO:
+      if(ssapmsg_is_status(msg)) {
+        PJ_LOG(3, (THIS_FILE, "Mic sensitivity info has no meaning as a status message. Dropping message."));
+        res = PJ_SUCCESS;
+      }
+      else {
+        ssapcall_micsensitivity_t mic_sens;
+        current_mic_status(&mic_sens);
+        res = ssapmsg_send_reply(SSAPCALL_MIC_SENSITIVITY, &mic_sens);
+      }
+      break;
+        
 	  case SSAPCALL_SPEAKER_VOLUME:
-		case SSAPCALL_MUTE_SPEAKER:
+      {
+        ssapcall_speakervolume_t speaker_vol;
+        res = ssapmsg_unpack(&speaker_vol, msg);
+        if(res != PJ_SUCCESS) {
+          PJ_PERROR(3, (THIS_FILE, res, "Could not unpack %s", ssapmsgtype_str(msg->type)));
+          return res;
+        }
+
+        res = adjust_speaker_volume(&speaker_vol);
+
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, "Could not set speaker volume.");
+      }
+      break;
+
+	  case SSAPCALL_SPEAKER_VOLUME_INFO:
+      if(ssapmsg_is_status(msg)) {
+        PJ_LOG(3, (THIS_FILE, "Speaker volume info has no meaning as a status message. Dropping message."));
+        res = PJ_SUCCESS;
+      }
+      else {
+        ssapcall_speakervolume_t speaker_vol;
+        current_speaker_volume(&speaker_vol);
+        res = ssapmsg_send_reply(SSAPCALL_SPEAKER_VOLUME, &speaker_vol);
+      }
+      break;
+
 	  case SSAPCALL_DTMF:
 	  case SSAPCALL_QUALITY:
 	  case SSAPCALL_INFO:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(res, "SCAIP command is NOT IMPLEMENTED.");
+      }
+      res = PJ_ENOTFOUND;
       break;
 
 	  case SSAPMSG_SCAIP:
@@ -340,8 +457,13 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
 
         //PJ_LOG(2, (THIS_FILE, "Sending IM message: %s", ssapmsg_scaip_address(msg)));
         res = send_scaip_im(&scaip_msg);
-        break;
+
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, "Failed sending SCAIP message.");
       }
+      break;
+
 		case SSAPMSG_DTMF:
 	  case SSAPMSG_PLAIN:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
@@ -352,7 +474,9 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       PJ_LOG(2, (THIS_FILE, "Quitting app."));
 
       /* Send response that message was received. */
-      ssapmsg_response(PJ_SUCCESS, NULL);
+      if(!ssapmsg_is_status(msg)) {
+        (void) ssapmsg_response(PJ_SUCCESS, NULL);
+      }
       pj_thread_sleep(500);
 
       close_ssap_connection();
@@ -365,7 +489,9 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       PJ_LOG(2, (THIS_FILE, "Reloading app."));
 
       /* Send response that message was received. */
-      ssapmsg_response(PJ_SUCCESS, NULL);
+      if(!ssapmsg_is_status(msg)) {
+        (void) ssapmsg_response(PJ_SUCCESS, NULL);
+      }
       pj_thread_sleep(500);
 
       close_ssap_connection();
@@ -377,6 +503,10 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       
 	  case SSAPCONFIG_STATUS:
       PJ_LOG(3, (THIS_FILE, "functionlity NOT IMPLEMENTED for %s", ssapmsgtype_str(msg->type)));
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(res, "SCAIP command is NOT IMPLEMENTED.");
+      }
+      res = PJ_ENOTFOUND;
       break;
 
 		case SSAPCONFIG_ACCOUNT_ADD:
@@ -389,15 +519,20 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
         PJ_LOG(3, (THIS_FILE, "Adding account: %s", pj_strbuf(&acc_add.sip_address)));
         res = ui_scaip_account_add(&acc_add, &app_config.rtp_cfg, &acc_info.id);
 
-        if(res == PJ_SUCCESS) {
-          // Collect acc. info and return that. */
-          res = ui_scaip_account_info(&acc_info);
-          res = (res == PJ_SUCCESS) 
-            ? ssapmsg_send_reply(SSAPCONFIG_ACCOUNT_INFO, &acc_info)
-            : ssapmsg_response(res, "Added account but subsequent account info fetch failed.");
+        if(ssapmsg_is_status(msg)) {
+          res = PJ_SUCCESS;
         }
         else {
-          res = ssapmsg_response(res, NULL);
+          if(res == PJ_SUCCESS) {
+            // Collect acc. info and return that. */
+            res = ui_scaip_account_info(&acc_info);
+            res = (res == PJ_SUCCESS) 
+              ? ssapmsg_send_reply(SSAPCONFIG_ACCOUNT_INFO, &acc_info)
+              : ssapmsg_response(res, "Added account but subsequent account info fetch failed.");
+          }
+          else {
+            res = ssapmsg_response(res, NULL);
+          }
         }
         break;
       }
@@ -409,9 +544,12 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
 
         PJ_LOG(3, (THIS_FILE, "Delete account: %d", acc_del.id));
         res = ui_scaip_account_del(&acc_del);
-        res = ssapmsg_response(res, "Failed to delete account.");
-        break;
+
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, "Failed to delete account.");
       }
+      break;
 		case SSAPCONFIG_ACCOUNT_LIST:
       PJ_LOG(3, (THIS_FILE, "List accounts"));
       if(ssapmsg_is_status(msg)) {
@@ -429,7 +567,11 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
       }
       break;
 		case SSAPCONFIG_ACCOUNT_INFO:
-      {
+      if(ssapmsg_is_status(msg)) {
+        PJ_LOG(3, (THIS_FILE, "%s has no meaning as a status message. Dropping message.", ssapmsgtype_str(msg->type)));
+        res = PJ_SUCCESS;
+      }
+      else {
         pjsua_acc_info acc_info;
         res = ssapmsg_unpack(&acc_info, msg);
         if(res != PJ_SUCCESS) { return res; }
@@ -440,8 +582,8 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
         res = (res == PJ_SUCCESS)
           ? ssapmsg_send_reply(SSAPCONFIG_ACCOUNT_INFO, &acc_info)
           : ssapmsg_response(res, NULL);
-        break;
       }
+      break;
 		case SSAPCONFIG_BUDDY_ADD:
       {
         ssapconfig_buddy_add_t buddy_add;
@@ -452,19 +594,23 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
         PJ_LOG(3, (THIS_FILE, "Adding buddy: %s", pj_strbuf(&buddy_add.sip_url)));
         res = ui_scaip_buddy_add(&buddy_add, &buddy_info.id);
 
-        if(res == PJ_SUCCESS) {
-          res = ui_scaip_buddy_info(&buddy_info);
-          /* Send send result. */
-          //res = ssapmsg_response(res, NULL);
-          res = (res == PJ_SUCCESS)
-            ? ssapmsg_send_reply(SSAPCONFIG_BUDDY_INFO, &buddy_info)
-            : ssapmsg_response(res, "Added buddy but subsequent buddy info fetch failed.");
+        if(ssapmsg_is_status(msg)) {
+          res = PJ_SUCCESS;
         }
         else {
-          res = ssapmsg_response(res, NULL);
+          if(res == PJ_SUCCESS) {
+            res = ui_scaip_buddy_info(&buddy_info);
+            /* Send send result. */
+            res = (res == PJ_SUCCESS)
+              ? ssapmsg_send_reply(SSAPCONFIG_BUDDY_INFO, &buddy_info)
+              : ssapmsg_response(res, "Added buddy but subsequent buddy info fetch failed.");
+          }
+          else {
+            res = ssapmsg_response(res, "Could not add buddy.");
+          }
         }
-        break;
       }
+      break;
 		case SSAPCONFIG_BUDDY_DELETE:
       {
         ssapconfig_buddy_del_t buddy_del;
@@ -474,9 +620,11 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
         PJ_LOG(3, (THIS_FILE, "Removing buddy: %d", buddy_del.id));
         res = ui_scaip_buddy_del(&buddy_del);
 
-        res = ssapmsg_response(res, "Invalid buddy ID");
-        break;
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, "Invalid buddy ID");
       }
+      break;
 		case SSAPCONFIG_BUDDY_LIST:
       PJ_LOG(3, (THIS_FILE, "List buddies"));
       if(ssapmsg_is_status(msg)) {
@@ -514,7 +662,7 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
 
 	  case SSAPPJSUA:
       {
-        PJ_LOG(2, (THIS_FILE, "legacy %s command.", ssapmsgtype_str(msg->type)));
+        PJ_LOG(3, (THIS_FILE, "legacy %s command.", ssapmsgtype_str(msg->type)));
         ssappjsua_pjsua_t pjsua;
         res = ssapmsg_unpack(&pjsua, msg);
         if(res != PJ_SUCCESS) { return res; }
@@ -523,14 +671,19 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
           *app_cmd = pjsua.pjsua_cmd;
         }
 
-        if(!ssapmsg_is_status(msg)) {
-          res = ssapmsg_response(res, NULL);
-        }
-        break;
+        res = ssapmsg_is_status(msg)
+          ? PJ_SUCCESS
+          : ssapmsg_response(res, NULL);
       }
+      break;
 
     default:
       PJ_LOG(3, (THIS_FILE, "Unknown scaip command: %d", msg->type));
+      
+      if(!ssapmsg_is_status(msg)) {
+        ssapmsg_response(PJ_EINVAL, "Invalid scaip command.");
+      }
+
       res = PJ_EINVAL;
       break;
   }

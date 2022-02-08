@@ -415,6 +415,7 @@ pj_status_t ssapsock_transmission_status() {
 pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
   if(len > 0) {
     /* Allocate new node and add the data to it. */
+    PJ_LOG(3, (THIS_FILE, "Queing message."));
     pj_mutex_lock(transmitter_mut);
 
     if(queue_pool == NULL) {
@@ -436,6 +437,8 @@ pj_status_t ssapsock_send(const void* const data, pj_ssize_t* len) {
     node->len = *len;
     pj_list_push_back(&queue_head, node);
     pj_mutex_unlock(transmitter_mut);
+
+    PJ_LOG(3, (THIS_FILE, "Queing DONE."));
   }
 
   return PJ_SUCCESS;

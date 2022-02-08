@@ -734,7 +734,9 @@ static void on_pager(pjsua_call_id call_id, const pj_str_t *from,
 			.msg = *text
 		};
 
-		ssapmsg_send_reply(SSAPMSG_SCAIP, &scaip_msg);
+		//ssapmsg_send_request(SSAPMSG_SCAIP, &scaip_msg);
+		PJ_LOG(3, (THIS_FILE, "Received SCAIP message: %s", pj_strbuf(text)));
+		ssapmsg_send_status(SSAPMSG_SCAIP, &scaip_msg);
 #else
 		data_output("%s", pj_strbuf(text));
 #endif

@@ -23,9 +23,9 @@ typedef enum __attribute__((__packed__)) {
 	SSAPCALL_HANGUP,
 	SSAPCALL_STATUS,
 	SSAPCALL_MIC_SENSITIVITY,
-	SSAPCALL_MUTE_MIC,
+	SSAPCALL_MIC_SENSITIVITY_INFO,
 	SSAPCALL_SPEAKER_VOLUME,
-	SSAPCALL_MUTE_SPEAKER,
+	SSAPCALL_SPEAKER_VOLUME_INFO,
 	SSAPCALL_DTMF,
 	SSAPCALL_QUALITY,
 	SSAPCALL_INFO,
@@ -65,9 +65,9 @@ typedef enum __attribute__((__packed__)) {
 	  case SSAPCALL_HANGUP:
 		case SSAPCALL_STATUS:
 	  case SSAPCALL_MIC_SENSITIVITY:
-		case SSAPCALL_MUTE_MIC:
+		case SSAPCALL_MIC_SENSITIVITY_INFO:
 	  case SSAPCALL_SPEAKER_VOLUME:
-		case SSAPCALL_MUTE_SPEAKER:
+		case SSAPCALL_SPEAKER_VOLUME_INFO:
 	  case SSAPCALL_DTMF:
 	  case SSAPCALL_QUALITY:
 	  case SSAPCALL_INFO:
@@ -139,6 +139,36 @@ typedef struct __attribute__((__packed__)) {
 } ssapcall_status_payload_t;
 
 typedef struct {
+	float sensitivity;
+	pj_bool_t mute;
+} ssapcall_micsensitivity_t;
+
+typedef struct __attribute__((__packed__)) {
+	uint16_t sensitivity;
+	uint16_t mute;
+} ssapcall_micsensitivity_payload_t;
+
+/* ssapcall_micsensitivityinfo_t
+ * does not have an internal type. */
+
+typedef ssap_no_payload_t ssapcall_micsensitivityinfo_payload_t;
+
+typedef struct {
+	float volume;
+	pj_bool_t mute;
+} ssapcall_speakervolume_t;
+
+typedef struct __attribute__((__packed__)) {
+	uint16_t volume;
+	uint16_t mute;
+} ssapcall_speakervolume_payload_t;
+
+/* ssapcall_speakervolumeinfo_t
+ * does not have an internal type. */
+
+typedef ssap_no_payload_t ssapcall_speakervolumeinfo_payload_t;
+
+typedef struct {
 	pj_str_t receiver_url;
 	pj_str_t msg;
 } ssapmsg_scaip_t;
@@ -155,7 +185,7 @@ typedef struct {
 	pj_str_t auth_realm;
 	pj_str_t auth_user;
 	pj_str_t auth_pass;
-} ssapconfig_account_add_t ;
+} ssapconfig_account_add_t;
 
 typedef struct __attribute__((__packed__)) {
 	//uint16_t sip_url_offset;	// implicit 0.
@@ -257,10 +287,10 @@ union ssapmsg_payload {
 	ssapcall_dial_payload_t call_dial;
 	ssap_no_payload_t call_hangup;
 	ssapcall_status_payload_t call_status;
-	ssap_no_payload_t call_mic_sensitivity;
-	ssap_no_payload_t call_mute_mic;
-	ssap_no_payload_t call_speaker_volume;
-	ssap_no_payload_t call_mute_speaker;
+	ssapcall_micsensitivity_payload_t call_mic_sensitivity;
+	ssapcall_micsensitivityinfo_payload_t call_mic_sensitivity_info;
+	ssapcall_speakervolume_payload_t call_speaker_volume;
+	ssapcall_speakervolumeinfo_payload_t call_speaker_volume_info;
 	ssap_no_payload_t call_dtmf;
 	ssap_no_payload_t call_quality;
 	ssap_no_payload_t call_info;

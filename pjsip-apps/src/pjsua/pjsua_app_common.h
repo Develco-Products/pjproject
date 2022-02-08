@@ -170,6 +170,7 @@ extern pj_bool_t	    app_running;
 
 int my_atoi(const char *cs);
 int my_atoi2(const pj_str_t *s);
+
 pj_bool_t find_next_call(void);
 pj_bool_t find_prev_call(void);
 void send_request(char *cstr_method, const pj_str_t *dst_uri);
@@ -217,7 +218,6 @@ void app_config_show_video(int acc_id, const pjsua_acc_config *acc_cfg);
 #else
 #  define TEST_MULTIPART(msg_data)
 #endif
-
 
 PJ_END_DECL
     

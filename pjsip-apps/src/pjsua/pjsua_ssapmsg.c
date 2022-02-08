@@ -82,15 +82,15 @@ char* ssapmsgtype_str(ssapmsg_t type) {
 	  case SSAPCALL_MIC_SENSITIVITY:
 	  	ret = "SSAPCALL_MIC_SENSITIVITY";
       break;
-		case SSAPCALL_MUTE_MIC:
-			ret = "SSAPCALL_MUTE_MIC";
-			break;
+	  case SSAPCALL_MIC_SENSITIVITY_INFO:
+	  	ret = "SSAPCALL_MIC_SENSITIVITY_INFO";
+      break;
 	  case SSAPCALL_SPEAKER_VOLUME:
 	  	ret = "SSAPCALL_SPEAKER_VOLUME";
       break;
-		case SSAPCALL_MUTE_SPEAKER:
-			ret = "SSAPCALL_MUTE_SPEAKER";
-			break;
+	  case SSAPCALL_SPEAKER_VOLUME_INFO:
+	  	ret = "SSAPCALL_SPEAKER_VOLUME_INFO";
+      break;
 	  case SSAPCALL_DTMF:
 	  	ret = "SSAPCALL_DTMF";
       break;
@@ -195,9 +195,19 @@ void ssapmsg_print(ssapmsg_datagram_t* const msg) {
       PJ_LOG(3, (THIS_FILE, "  state text   : %s", msg->payload.call_status.state_text));
       break;
 	  case SSAPCALL_MIC_SENSITIVITY:
-		case SSAPCALL_MUTE_MIC:
+      PJ_LOG(3, (THIS_FILE, "  sensitivity  : %d", msg->payload.call_mic_sensitivity.sensitivity));
+      PJ_LOG(3, (THIS_FILE, "  mute      		: %s", (msg->payload.call_mic_sensitivity.mute ? "on" : "off")));
+			break;
+	  case SSAPCALL_MIC_SENSITIVITY_INFO:
+      PJ_LOG(3, (THIS_FILE, "  - no payload -"));
+			break;
 	  case SSAPCALL_SPEAKER_VOLUME:
-		case SSAPCALL_MUTE_SPEAKER:
+      PJ_LOG(3, (THIS_FILE, "  volume       : %d", msg->payload.call_speaker_volume.volume));
+      PJ_LOG(3, (THIS_FILE, "  mute      		: %s", (msg->payload.call_mic_sensitivity.mute ? "on" : "off")));
+			break;
+	  case SSAPCALL_SPEAKER_VOLUME_INFO:
+      PJ_LOG(3, (THIS_FILE, "  - no payload -"));
+			break;
 	  case SSAPCALL_DTMF:
 	  case SSAPCALL_QUALITY:
 	  case SSAPCALL_INFO:
@@ -463,9 +473,35 @@ pj_status_t ssapmsg_unpack(void* const ssapmsg, const ssapmsg_datagram_t* const 
 				break;
 			}
 	  case SSAPCALL_MIC_SENSITIVITY:
-		case SSAPCALL_MUTE_MIC:
+			{
+				ssapcall_micsensitivity_t* const mic_sens = (ssapcall_micsensitivity_t* const) ssapmsg;
+				const ssapcall_micsensitivity_payload_t* const mic_sens_payload = &datagram->payload.call_mic_sensitivity;
+
+				mic_sens->sensitivity = (float) mic_sens_payload->sensitivity / 100.0;
+				mic_sens->sensitivity = (pj_bool_t) mic_sens_payload->mute;
+
+				res = PJ_SUCCESS;
+				break;
+			}
+	  case SSAPCALL_MIC_SENSITIVITY_INFO:
+			/* No payload to be unpacked. */
+			res = PJ_SUCCESS;
+			break;
 	  case SSAPCALL_SPEAKER_VOLUME:
-		case SSAPCALL_MUTE_SPEAKER:
+			{
+				ssapcall_speakervolume_t* const speaker_volume = (ssapcall_speakervolume_t* const) ssapmsg;
+				const ssapcall_speakervolume_payload_t* const speaker_volume_payload = &datagram->payload.call_speaker_volume;
+
+				speaker_volume->volume = (float) speaker_volume_payload->volume / 100.0;
+				speaker_volume->mute = (pj_bool_t) speaker_volume_payload->mute;
+
+				res = PJ_SUCCESS;
+				break;
+			}
+	  case SSAPCALL_SPEAKER_VOLUME_INFO:
+			/* No payload to be unpacked. */
+			res = PJ_SUCCESS;
+			break;
 	  case SSAPCALL_DTMF:
 	  case SSAPCALL_QUALITY:
 	  case SSAPCALL_INFO:
@@ -686,11 +722,43 @@ pj_status_t ssapmsg_pack(ssapmsg_datagram_t* const datagram, const void* const p
 				break;
 			}
 	  case SSAPCALL_MIC_SENSITIVITY:
-		case SSAPCALL_MUTE_MIC:
+			{
+				const ssapcall_micsensitivity_t* const mic_sens = (const ssapcall_micsensitivity_t* const) payload;
+				ssapcall_micsensitivity_payload_t* const datagram_payload = &datagram->payload.call_mic_sensitivity;
+
+				datagram_payload->sensitivity = (int) (mic_sens->sensitivity * 100.0);
+				datagram_payload->mute = mic_sens->mute ? 1 : 0;
+
+				datagram->payload_size = sizeof(ssapcall_micsensitivity_payload_t);
+				res = PJ_SUCCESS;
+				break;
+			}				
+	  case SSAPCALL_MIC_SENSITIVITY_INFO:
+			/* SSAPCALL_MIC_SENSITIVITY_INFO does not carry a payload. */
+			datagram->payload_size = 0;
+			datagram->payload.raw[0] = '\0';
+			res = PJ_SUCCESS;
+			break;
 	  case SSAPCALL_SPEAKER_VOLUME:
-		case SSAPCALL_MUTE_SPEAKER:
+			{
+				const ssapcall_speakervolume_t* const speaker_vol = (const ssapcall_speakervolume_t* const) payload;
+				ssapcall_speakervolume_payload_t* const datagram_payload = &datagram->payload.call_speaker_volume;
+
+				datagram_payload->volume = (int) (speaker_vol->volume * 100.0);
+				datagram_payload->mute = speaker_vol->mute ? 1 : 0;
+
+				datagram->payload_size = sizeof(ssapcall_speakervolume_payload_t);
+				res = PJ_SUCCESS;
+				break;
+			}
+	  case SSAPCALL_SPEAKER_VOLUME_INFO:
+			/* SSAPCALL_SPEAKER_VOLUME_INFO does not carry a payload. */
+			datagram->payload_size = 0;
+			datagram->payload.raw[0] = '\0';
+			res = PJ_SUCCESS;
+			break;
 	  case SSAPCALL_DTMF:
-	  case SSAPCALL_QUALITY:
+		case SSAPCALL_QUALITY:
 	  case SSAPCALL_INFO:
 			PJ_LOG(3, (THIS_FILE, "Method type (%s) not implemented.", ssapmsgtype_str(datagram->type)));
 			datagram->payload_size = 0;
