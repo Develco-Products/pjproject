@@ -28,7 +28,7 @@ export PJSUA_SRCDIR = ../src/pjsua
 export PJSUA_OBJS += $(OS_OBJS) $(M_OBJS) $(CC_OBJS) $(HOST_OBJS) \
             main.o pjsua_app.o pjsua_app_cli.o pjsua_app_common.o \
             pjsua_app_config.o pjsua_app_legacy.o pjsua_ssapcomm.o pjsua_ssapmsg.o \
-						pjsua_app_scaip.o
+						pjsua_app_scaip.o pjsua_bluetoothctl.o
 export PJSUA_CFLAGS += $(PJ_CFLAGS) $(CFLAGS) 
 export PJSUA_CXXFLAGS += $(PJ_CXXFLAGS) $(CFLAGS)
 export PJSUA_LDFLAGS += $(PJ_LDFLAGS) $(PJ_LDLIBS) $(LDFLAGS)

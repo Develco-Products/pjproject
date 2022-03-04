@@ -73,7 +73,7 @@ static int ssapsock_transmitter(void);
 
 #if UI_SOCKET
 char dp_print_buffer[1024];
-pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
+pj_ssize_t ui_input_socket(char* const buf, pj_ssize_t len)
 {
 	pj_status_t res = ssapsock_receive(buf, &len);
 
@@ -88,7 +88,7 @@ pj_ssize_t ui_input_socket(char* const buf, pj_size_t len)
 #endif
 
 #if UI_TERMINAL
-pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len)
+pj_ssize_t ui_input_terminal(char* const buf, pj_ssize_t len)
 {
 	if(fgets(buf, (int)len, stdin) != NULL) {
 		return strlen(buf);

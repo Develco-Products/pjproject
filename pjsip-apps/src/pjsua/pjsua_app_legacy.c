@@ -25,6 +25,8 @@
 #include "pjsua_ssapmsg.h"
 #include "pjsua_app_scaip.h"
 
+#include "pjsua_bluetoothctl.h"
+
 #define THIS_FILE	"pjsua_app_legacy.c"
 #define DISABLE_APP 1
 
@@ -1883,6 +1885,10 @@ void legacy_main(void)
 
 		PJ_LOG(3, (THIS_FILE, "Init caching memory pool."));
 		pj_caching_pool_init(&ssap_mem, NULL, SSAP_MEMORY_POOL_INITIAL_SIZE);
+
+		pj_str_t rcv;
+		pj_strset(&rcv, menuin, 0);
+		bluetoothctl_status(&rcv, 1024);
 
 #if 0
 		pj_str_t s = pj_str(NULL);

@@ -4,7 +4,10 @@
 #define MANUAL_SETTINGS
 #define UI_SOCKET (1)
 #define UI_TERMINAL (0)
-#define ENABLE_PJSUA_SSAP (1)
+
+#ifndef ENABLE_PJSUA_SSAP
+#	define ENABLE_PJSUA_SSAP (1)
+#endif
 
 /* Log data output. Value > 0 specifies log level. 
  * 0 disables. */
@@ -72,13 +75,13 @@ extern char dp_print_buffer[1024];
 #		define data_output(...) {sprintf(dp_print_buffer, __VA_ARGS__);ssapsock_send_blind(dp_print_buffer, strlen(dp_print_buffer));}while(0)
 #	endif
 #	define ui_input(buffer, buffer_length) ui_input_socket(buffer, buffer_length)
-pj_ssize_t ui_input_socket(char* const buf, pj_size_t len);
+pj_ssize_t ui_input_socket(char* const buf, pj_ssize_t len);
 #elif UI_TERMINAL
 # define printf(...) {printf(__VA_ARGS__);fflush(stdout);}while(0)
 # define puts(s) {puts(s);fflush(stdout);}while(0)
 #	define ui_input(buffer, buffer_length) ui_input_terminal(buffer, buffer_length)
 #	define data_output(...) {printf(__VA_ARGS__);fflush(stdout);}while(0)
-pj_ssize_t ui_input_terminal(char* const buf, pj_size_t len);
+pj_ssize_t ui_input_terminal(char* const buf, pj_ssize_t len);
 #else
 # error "You must specify where UI i/o is sent."
 #endif

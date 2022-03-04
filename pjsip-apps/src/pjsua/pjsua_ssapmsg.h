@@ -5,7 +5,7 @@
 
 
 #define SSAPMSG_PROTOCOL_VERSION (0)
-#define SSAPMSG_PAYLOAD_BUFFER_MAX (256)
+#define SSAPMSG_PAYLOAD_BUFFER_MAX (768)
 
 #define SSAPMSG_HEADER_SIZE (sizeof(ssapmsg_datagram_t) - sizeof(union ssapmsg_payload))
 #define SSAPMSG_MAX_PAYLOAD_SIZE (256)
@@ -99,9 +99,9 @@ typedef struct __attribute__((__packed__)) {
 
 /* Generalized wrapper for no defined data structure. */
 typedef struct __attribute__((__packed__)) {
-	/* Must be a null-terminated string. */
-	uint8_t data[0];
-} ssapmsg_raw_t;
+	uint16_t data_len;
+	char data[0];
+} ssap_raw_t;
 
 
 
@@ -270,6 +270,21 @@ typedef struct __attribute__((__packed__)) {
 	char pjsua_cmd[0];
 } ssappjsua_pjsua_payload_t;
 
+
+typedef struct {
+	pj_str_t controller;
+} audiomgr_controller_t;
+
+typedef ssap_raw_t audiomgr_controller_payload_t;
+
+typedef struct {
+	pj_str_t device;
+} audiomgr_device_t;
+
+typedef ssap_raw_t audiomgr_device_payload_t;
+
+
+
 /*
  * Wrapper for a legacy text-based command passed on to pjsua's text 
  * interface. 
@@ -311,6 +326,9 @@ union ssapmsg_payload {
 	ssapconfig_buddy_del_payload_t config_buddy_del;
 	ssapconfig_buddy_list_payload_t config_buddy_list;
 	ssapconfig_buddy_info_payload_t config_buddy_info;
+
+	audiomgr_controller_payload_t audiomgr_controller;
+	audiomgr_device_payload_t audiomgr_device;
 
 	ssappjsua_pjsua_payload_t pjsua;
 	uint8_t raw[SSAPMSG_PAYLOAD_BUFFER_MAX];	// Max payload buffer.
