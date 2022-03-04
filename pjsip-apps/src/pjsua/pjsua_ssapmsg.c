@@ -149,6 +149,12 @@ char* ssapmsgtype_str(ssapmsg_t type) {
 	  	ret = "SSAPPJSUA";
       break;
 
+		case AUDIOMGR_CONTROLLER_INFO:
+			ret = "AUDIOMGR_CONTROLLER_INFO";
+			break;
+		case AUDIOMGR_DEVICE_INFO:
+			ret = "AUDIOMGR_DEVICE_INFO";
+			break;
     default:
       PJ_LOG(3, (THIS_FILE, "INVALID SSAPMSG enum value: %d", type));
       ret = "";
@@ -310,9 +316,15 @@ void ssapmsg_print(ssapmsg_datagram_t* const msg) {
 			break;
 
 	  case SSAPPJSUA:
-      PJ_LOG(3, (THIS_FILE, "  pjsua cmd      : %s", msg->payload.pjsua.pjsua_cmd));
+      PJ_LOG(3, (THIS_FILE, "  pjsua cmd    : %s", msg->payload.pjsua.pjsua_cmd));
       break;
 
+		case AUDIOMGR_CONTROLLER_INFO:
+			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_controller_info.sz_string));
+			break;
+		case AUDIOMGR_DEVICE_INFO:
+			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_device_info.sz_string));
+			break;
     default:
       PJ_LOG(3, (THIS_FILE, "  Invalid type. Raw hex dump of 64B payload:", msg->type));
 			print_raw_hex(msg->payload.raw, 64);
@@ -623,6 +635,14 @@ pj_status_t ssapmsg_unpack(void* const ssapmsg, const ssapmsg_datagram_t* const 
 				break; 
 			}
 
+		case AUDIOMGR_CONTROLLER_INFO:
+			{
+				audiomgr_controller_info_t* const dst = (audiomgr_controller_info_t* const) ssapmsg;
+				const audiomgr_controller_info_payload_t* const src = &datagram->payload.audiomgr_device_info;
+				
+				pj_cstr(&dstroller, src->
+
+		case AUDIOMGR_DEVICE_INFO:
 		default:
 			PJ_LOG(3, (THIS_FILE, "Invalid message type (0x%X) cannot be unpaced.", datagram->type));
 			res = PJ_EINVAL;

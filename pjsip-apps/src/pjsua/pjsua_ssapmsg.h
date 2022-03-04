@@ -47,6 +47,9 @@ typedef enum __attribute__((__packed__)) {
 	SSAPCONFIG_BUDDY_INFO,
 
 	SSAPPJSUA					= 0x4000,
+
+	AUDIOMGR_CONTROLLER_INFO	= 0x5000,
+	AUDIOMGR_DEVICE_INFO
 } ssapmsg_t;
 
 #define SSAPMSG_STATUS_REFERENCE 					(-1)
@@ -89,6 +92,9 @@ typedef enum __attribute__((__packed__)) {
 		case SSAPCONFIG_BUDDY_INFO:
 
 	  case SSAPPJSUA:
+
+		case AUDIOMGR_CONTROLLER_INFO:
+		case AUDIOMGR_DEVICE_INFO:
 		*/
 
 
@@ -102,6 +108,10 @@ typedef struct __attribute__((__packed__)) {
 	uint16_t data_len;
 	char data[0];
 } ssap_raw_t;
+
+typedef struct __attribute__((__packed__)) {
+	char sz_string[0];
+} ssap_sz_t;
 
 
 
@@ -273,15 +283,15 @@ typedef struct __attribute__((__packed__)) {
 
 typedef struct {
 	pj_str_t controller;
-} audiomgr_controller_t;
+} audiomgr_controller_info_t;
 
-typedef ssap_raw_t audiomgr_controller_payload_t;
+typedef ssap_sz_t audiomgr_controller_info_payload_t;
 
 typedef struct {
 	pj_str_t device;
-} audiomgr_device_t;
+} audiomgr_device_info_t;
 
-typedef ssap_raw_t audiomgr_device_payload_t;
+typedef ssap_sz_t audiomgr_device_info_payload_t;
 
 
 
@@ -327,8 +337,8 @@ union ssapmsg_payload {
 	ssapconfig_buddy_list_payload_t config_buddy_list;
 	ssapconfig_buddy_info_payload_t config_buddy_info;
 
-	audiomgr_controller_payload_t audiomgr_controller;
-	audiomgr_device_payload_t audiomgr_device;
+	audiomgr_controller_info_payload_t audiomgr_controller_info;
+	audiomgr_device_info_payload_t audiomgr_device_info;
 
 	ssappjsua_pjsua_payload_t pjsua;
 	uint8_t raw[SSAPMSG_PAYLOAD_BUFFER_MAX];	// Max payload buffer.
