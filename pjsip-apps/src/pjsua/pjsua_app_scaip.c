@@ -8,6 +8,7 @@
 #include "pjsua_app.h"
 #include "pj/types.h"
 //#include "pjsua_ssapmsg.h"
+#include "pjsua_bluetoothctl.h"
 
 #define THIS_FILE "pjsua_app_scaip"
 
@@ -674,6 +675,41 @@ pj_status_t ui_scaip_handler(const ssapmsg_datagram_t* const msg, pj_str_t* app_
         res = ssapmsg_is_status(msg)
           ? PJ_SUCCESS
           : ssapmsg_response(res, NULL);
+      }
+      break;
+
+		case AUDIOMGR_CONTROLLER_INFO:
+      if(ssapmsg_is_status(msg)) {
+        PJ_LOG(3, (THIS_FILE, "%s has no meaning as a status message. Dropping message.", ssapmsgtype_str(msg->type)));
+        res = PJ_SUCCESS;
+      }
+      else {
+        PJ_LOG(3, (THIS_FILE, "Retrieving bluetooth controller information."));
+        audiomgr_controller_info_t ctrl_info;
+
+        /* Message payload from ssap is ignored. */
+
+        pj_status_t res = bluetoothctl_controller_status(ctrl_info.controller_info, SSAPMSG_PAYLOAD_BUFFER_MAX);
+        res = (res == PJ_SUCCESS)
+          ? ssapmsg_send_reply(AUDIOMGR_CONTROLLER_INFO, &ctrl_info)
+          : ssapmsg_response(res, "Failed to obtain bluetooth controller info.");
+      }
+      break;
+		case AUDIOMGR_DEVICE_INFO:
+      if(ssapmsg_is_status(msg)) {
+        PJ_LOG(3, (THIS_FILE, "%s has no meaning as a status message. Dropping message.", ssapmsgtype_str(msg->type)));
+        res = PJ_SUCCESS;
+      }
+      else {
+        PJ_LOG(3, (THIS_FILE, "Retrieving bluetooth device information."));
+        audiomgr_device_info_t dev_info;
+
+        /* Message payload from ssap is ignored. */
+
+        pj_status_t res = bluetoothctl_device_status(dev_info.device_info, SSAPMSG_PAYLOAD_BUFFER_MAX);
+        res = (res == PJ_SUCCESS)
+          ? ssapmsg_send_reply(AUDIOMGR_DEVICE_INFO, &dev_info)
+          : ssapmsg_response(res, "Failed to obtain bluetooth device info.");
       }
       break;
 

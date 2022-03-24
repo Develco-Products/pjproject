@@ -1886,9 +1886,11 @@ void legacy_main(void)
 		PJ_LOG(3, (THIS_FILE, "Init caching memory pool."));
 		pj_caching_pool_init(&ssap_mem, NULL, SSAP_MEMORY_POOL_INITIAL_SIZE);
 
+#if 0
 		pj_str_t rcv;
 		pj_strset(&rcv, menuin, 0);
 		bluetoothctl_status(&rcv, 1024);
+#endif
 
 #if 0
 		pj_str_t s = pj_str(NULL);

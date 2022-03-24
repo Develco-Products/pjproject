@@ -1,9 +1,12 @@
 #include "pjsua_bluetoothctl.h"
 
+#include "pjsua_ssapmsg.h"
+
 #define THIS_FILE           "pjsua_bluetoothctl"
 #define BLUETOOTHCTL_PATH   "/usr/bin/bluetoothctl"
 #define UCI_PATH            "/usr/bin/uci"
-#define UCI_BT_ADDRESS_NODE "btaudiomanager.speaker.address"
+#define UCI_BT_ADDRESS_NODE "btaudiomanager.speaker.address"  // uci node.
+#define BT_CONTROLLER_NODE  "production.linux.bdaddr"         // config node.
 
 #define SYSCMD_TIMEOUT_ms (3000)
 #define SYSCMD_OUTP_BUFFER (1024)
@@ -13,7 +16,8 @@
 // located in pjsua_app_legacy.c
 extern pj_caching_pool ssap_mem;
 
-static const pj_str_t* system_cmd = NULL;
+//static const pj_str_t* system_cmd = NULL;
+static const char* system_cmd = NULL;
 static pj_pool_t* syscmd_pool = NULL;
 static pj_thread_t* cmd_runner = NULL;
 static pj_mutex_t* cmd_runner_block = NULL;             // sync for caller.
@@ -22,14 +26,15 @@ static int system_ret = 0;                              // Used by cmd_runner. D
 
 // set by calling function.
 //static char* syscmd_outp_buffer;            // statically allocated in calling function.
-static pj_str_t* syscmd_outp_buffer;
+//static pj_str_t* syscmd_outp_buffer;
+static char syscmd_outp_buffer[SSAPMSG_PAYLOAD_BUFFER_MAX];
 static pj_ssize_t syscmd_buffer_size;
 
 // ssap_exec
 // thread proc. 
 int ssap_exec();
 
-static pj_status_t run_cmd(const pj_str_t* cmd, int* const sysret) {
+static pj_status_t run_cmd(const char* cmd, int* const sysret) {
   if(syscmd_pool != NULL) {
     PJ_LOG(3, (THIS_FILE, "Cannoct allocate memory for system command twice."));
     return PJ_EEXISTS;
@@ -68,7 +73,6 @@ static pj_status_t run_cmd(const pj_str_t* cmd, int* const sysret) {
       everything_is_alright = PJ_FALSE;
     }
     else {
-      PJ_LOG(3, (THIS_FILE, "waiting..."));
       pj_thread_sleep(100);
       timer_count += 100;
     }
@@ -105,47 +109,113 @@ int ssap_exec() {
     return res;
   }
   
-  PJ_LOG(3, (THIS_FILE, "ssap_exec: %s", pj_strbuf(system_cmd)));
+  PJ_LOG(5, (THIS_FILE, "ssap_exec: %s", system_cmd));
 
-  FILE* proc = popen(pj_strbuf(system_cmd), "r");
+  FILE* proc = popen(system_cmd, "r");
   if(proc != NULL) {
-    pj_ssize_t size = 0;
+    ssize_t size = 0;
+#if 0
     char buf[128];
     size_t bite = (syscmd_buffer_size >= 128) 
         ? 128
         : syscmd_buffer_size;
+#endif
 
+    //PJ_LOG(3, (THIS_FILE, ","));
     // Clear content of receiving buffer.
-    pj_strcpy2(syscmd_outp_buffer, "");
+    //pj_strcpy2(syscmd_outp_buffer, "");
+    //strcpy(syscmd_outp_buffer, "");
 
-    while(fgets(buf, bite, proc) != NULL || size >= syscmd_buffer_size) {
-      pj_strcat2(syscmd_outp_buffer, buf);
-      size += strlen(buf);
+    //PJ_LOG(3, (THIS_FILE, ","));
+    //while(fgets(buf, bite, proc) != NULL || size >= syscmd_buffer_size) {
+    while(fgets(syscmd_outp_buffer + size, syscmd_buffer_size, proc) != NULL || size >= syscmd_buffer_size) {
+      //pj_strcat2(syscmd_outp_buffer, buf);
+      //strcat(syscmd_outp_buffer + size, buf);
+      //size += strlen(buf);
+      size += strlen(syscmd_outp_buffer + size);
+     // PJ_LOG(3, (THIS_FILE, "-"));
+#if 0
+      PJ_LOG(3, (THIS_FILE, ":%s", buf));
+      bite = (syscmd_buffer_size - size >= 128) 
+          ? 128
+          : syscmd_buffer_size - size;
+#endif
     }
+    //PJ_LOG(3, (THIS_FILE, ","));
     pclose(proc);
+    //PJ_LOG(3, (THIS_FILE, ","));
 
-    PJ_LOG(3, (THIS_FILE, "ssap_exec output (%dB):\n%s", pj_strlen(syscmd_outp_buffer), pj_strbuf(syscmd_outp_buffer)));
+    //PJ_LOG(3, (THIS_FILE, "ssap_exec output (%dB):\n%s", pj_strlen(syscmd_outp_buffer), pj_strbuf(syscmd_outp_buffer)));
+    PJ_LOG(5, (THIS_FILE, "ssap_exec output (%dB):\n%s", size, syscmd_outp_buffer));
   }
   else {
+    //PJ_LOG(3, (THIS_FILE, "!"));
     system_ret = errno;
     PJ_PERROR(3, (THIS_FILE, system_ret, "Error trying to execute system command."));
+    //PJ_LOG(3, (THIS_FILE, "!"));
     return system_ret;
   }
+  //PJ_LOG(3, (THIS_FILE, "."));
 
   pj_mutex_unlock(cmd_runner_block);
+  //PJ_LOG(3, (THIS_FILE, "."));
   return 0;
 }
 
-
-pj_status_t bluetoothctl_status(pj_str_t* device_status, pj_ssize_t buffer_size) {
-  syscmd_outp_buffer = device_status;
+pj_status_t bluetoothctl_controller_status(char* device_status, pj_ssize_t buffer_size) {
+  //PJ_LOG(3, (THIS_FILE, "%s", __func__));
   syscmd_buffer_size = buffer_size;
 
-  char cmd_inp[128];
+  char cmd[128];
   int sysret = 0;
 
-  pj_str_t cmd = pj_str(UCI_PATH " get " UCI_BT_ADDRESS_NODE);
-  pj_status_t ret = run_cmd(&cmd, &sysret);
+  strcpy(cmd, "getcfg " BT_CONTROLLER_NODE);
+  pj_status_t ret = run_cmd(cmd, &sysret);
+  
+  if(ret != PJ_SUCCESS || sysret != 0) {
+    PJ_PERROR(3, (THIS_FILE, (ret != PJ_SUCCESS ? ret : sysret), "Failure executing system command."));
+    if(ret == PJ_SUCCESS) {
+      ret = PJ_EUNKNOWN;
+    }
+
+    return ret;
+  }
+
+  /* bt address is returned without seperating ':'s */
+  strcpy(cmd, BLUETOOTHCTL_PATH " show ");
+  int offset = strlen(cmd);
+  for(int i=0; i<strlen(syscmd_outp_buffer); i+=2) {
+    cmd[offset++] = syscmd_outp_buffer[i +0];
+    cmd[offset++] = syscmd_outp_buffer[i +1];
+    cmd[offset++] = ':';
+  }
+  // overwrite the last ':' with a terminating null.
+  cmd[offset -1] = '\0';
+
+  ret = run_cmd(cmd, &sysret);
+  
+  if(ret != PJ_SUCCESS || sysret != 0) {
+    PJ_PERROR(3, (THIS_FILE, (ret != PJ_SUCCESS ? ret : sysret), "Failure executing system command."));
+    if(ret == PJ_SUCCESS) {
+      ret = PJ_EUNKNOWN;
+    }
+
+    return ret;
+  }
+
+  /* Copy reply back into device status. */
+  strcpy(device_status, syscmd_outp_buffer);
+  return PJ_SUCCESS;
+}
+
+pj_status_t bluetoothctl_device_status(char* device_status, pj_ssize_t buffer_size) {
+  syscmd_buffer_size = buffer_size;
+
+  char cmd[128];
+  int sysret = 0;
+
+  strcpy(cmd, UCI_PATH " get " UCI_BT_ADDRESS_NODE);
+  pj_status_t ret = run_cmd(cmd, &sysret);
 
   if(ret != PJ_SUCCESS || sysret != 0) {
     PJ_PERROR(3, (THIS_FILE, (ret != PJ_SUCCESS ? ret : sysret), "Failure executing system command."));
@@ -156,11 +226,10 @@ pj_status_t bluetoothctl_status(pj_str_t* device_status, pj_ssize_t buffer_size)
     return ret;
   }
 
-  pj_strset(&cmd, cmd_inp, 0);
-  pj_strcpy2(&cmd, BLUETOOTHCTL_PATH " info ");
-  pj_strcat(&cmd, syscmd_outp_buffer);
+  strcpy(cmd, BLUETOOTHCTL_PATH " info ");
+  strcat(cmd, syscmd_outp_buffer);
 
-  ret = run_cmd(&cmd, &sysret);
+  ret = run_cmd(cmd, &sysret);
   if(ret != PJ_SUCCESS || sysret != 0) {
     PJ_PERROR(3, (THIS_FILE, (ret != PJ_SUCCESS ? ret : sysret), "Failure executing system command."));
     if(ret == PJ_SUCCESS) {
@@ -170,6 +239,8 @@ pj_status_t bluetoothctl_status(pj_str_t* device_status, pj_ssize_t buffer_size)
     return ret;
   }
 
+  /* Copy reply back into device status. */
+  strcpy(device_status, syscmd_outp_buffer);
   return PJ_SUCCESS;
 }
 

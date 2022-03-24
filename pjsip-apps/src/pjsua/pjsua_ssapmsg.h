@@ -5,11 +5,11 @@
 
 
 #define SSAPMSG_PROTOCOL_VERSION (0)
-#define SSAPMSG_PAYLOAD_BUFFER_MAX (768)
 
 #define SSAPMSG_HEADER_SIZE (sizeof(ssapmsg_datagram_t) - sizeof(union ssapmsg_payload))
-#define SSAPMSG_MAX_PAYLOAD_SIZE (256)
+#define SSAPMSG_MAX_PAYLOAD_SIZE (1024)
 #define SSAPMSG_VARDATA_MAX_SIZE(msg_type) (SSAPMSG_MAX_PAYLOAD_SIZE - sizeof(msg_type))
+#define SSAPMSG_PAYLOAD_BUFFER_MAX SSAPMSG_MAX_PAYLOAD_SIZE
 
 typedef enum __attribute__((__packed__)) {
 	SSAPMSG_UNDEFINED	= 0,
@@ -108,10 +108,6 @@ typedef struct __attribute__((__packed__)) {
 	uint16_t data_len;
 	char data[0];
 } ssap_raw_t;
-
-typedef struct __attribute__((__packed__)) {
-	char sz_string[0];
-} ssap_sz_t;
 
 
 
@@ -282,16 +278,20 @@ typedef struct __attribute__((__packed__)) {
 
 
 typedef struct {
-	pj_str_t controller;
+	char controller_info[SSAPMSG_MAX_PAYLOAD_SIZE];
 } audiomgr_controller_info_t;
 
-typedef ssap_sz_t audiomgr_controller_info_payload_t;
+typedef struct {
+	char controller_info[0];
+} audiomgr_controller_info_payload_t;
 
 typedef struct {
-	pj_str_t device;
+	char device_info[SSAPMSG_MAX_PAYLOAD_SIZE];
 } audiomgr_device_info_t;
 
-typedef ssap_sz_t audiomgr_device_info_payload_t;
+typedef struct {
+	char device_info[0];
+} audiomgr_device_info_payload_t;
 
 
 
@@ -341,7 +341,7 @@ union ssapmsg_payload {
 	audiomgr_device_info_payload_t audiomgr_device_info;
 
 	ssappjsua_pjsua_payload_t pjsua;
-	uint8_t raw[SSAPMSG_PAYLOAD_BUFFER_MAX];	// Max payload buffer.
+	uint8_t raw[SSAPMSG_MAX_PAYLOAD_SIZE];	// Max payload buffer.
 };
 
 typedef struct __attribute__((__packed__)) {

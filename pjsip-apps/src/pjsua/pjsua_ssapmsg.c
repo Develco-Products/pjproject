@@ -320,10 +320,10 @@ void ssapmsg_print(ssapmsg_datagram_t* const msg) {
       break;
 
 		case AUDIOMGR_CONTROLLER_INFO:
-			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_controller_info.sz_string));
+			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_controller_info.controller_info));
 			break;
 		case AUDIOMGR_DEVICE_INFO:
-			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_device_info.sz_string));
+			PJ_LOG(3, (THIS_FILE, "  data					: EOF>>>>\n%s\nEOF", msg->payload.audiomgr_device_info.device_info));
 			break;
     default:
       PJ_LOG(3, (THIS_FILE, "  Invalid type. Raw hex dump of 64B payload:", msg->type));
@@ -638,11 +638,22 @@ pj_status_t ssapmsg_unpack(void* const ssapmsg, const ssapmsg_datagram_t* const 
 		case AUDIOMGR_CONTROLLER_INFO:
 			{
 				audiomgr_controller_info_t* const dst = (audiomgr_controller_info_t* const) ssapmsg;
-				const audiomgr_controller_info_payload_t* const src = &datagram->payload.audiomgr_device_info;
+				const audiomgr_controller_info_payload_t* const src = &datagram->payload.audiomgr_controller_info;
 				
-				pj_cstr(&dstroller, src->
-
+				pj_memcpy(&dst->controller_info, src->controller_info, datagram->payload_size);
+				res = PJ_SUCCESS;
+				break;
+			}
 		case AUDIOMGR_DEVICE_INFO:
+			{
+				audiomgr_device_info_t* const dst = (audiomgr_device_info_t* const) ssapmsg;
+				const audiomgr_device_info_payload_t* const src = &datagram->payload.audiomgr_device_info;
+				
+				pj_memcpy(&dst->device_info, src->device_info, datagram->payload_size);
+				res = PJ_SUCCESS;
+				break;
+			}
+
 		default:
 			PJ_LOG(3, (THIS_FILE, "Invalid message type (0x%X) cannot be unpaced.", datagram->type));
 			res = PJ_EINVAL;
@@ -986,6 +997,43 @@ pj_status_t ssapmsg_pack(ssapmsg_datagram_t* const datagram, const void* const p
 
 				datagram->payload_size = 
 					pjstr_extract(p->pjsua_cmd, &msg->pjsua_cmd, SSAPMSG_VARDATA_MAX_SIZE(ssappjsua_pjsua_payload_t));
+				res = PJ_SUCCESS;
+				break;
+			}
+
+		case AUDIOMGR_CONTROLLER_INFO:
+			{
+				const audiomgr_controller_info_t* const msg = (const audiomgr_controller_info_t* const) payload;
+				audiomgr_controller_info_payload_t* const p = &datagram->payload.audiomgr_controller_info;
+
+				ssize_t info_len = strlen(msg->controller_info) +1;
+				if(info_len > SSAPMSG_VARDATA_MAX_SIZE(audiomgr_controller_info_payload_t)) {
+					PJ_LOG(3, (THIS_FILE, "Payload overflow in %s message of %dB! Excessive bytes dropped!.", 
+								ssapmsgtype_str(datagram->type), 
+								info_len - SSAPMSG_VARDATA_MAX_SIZE(audiomgr_controller_info_payload_t)));
+					info_len = SSAPMSG_VARDATA_MAX_SIZE(audiomgr_controller_info_payload_t);
+				}
+
+				datagram->payload_size = info_len;
+				pj_memcpy(p->controller_info, &msg->controller_info, info_len);
+				res = PJ_SUCCESS;
+				break;
+			}
+		case AUDIOMGR_DEVICE_INFO:
+			{
+				const audiomgr_device_info_t* const msg = (const audiomgr_device_info_t* const) payload;
+				audiomgr_device_info_payload_t* const p = &datagram->payload.audiomgr_device_info;
+
+				ssize_t info_len = strlen(msg->device_info) +1;
+				if(info_len > SSAPMSG_VARDATA_MAX_SIZE(audiomgr_device_info_payload_t)) {
+					PJ_LOG(3, (THIS_FILE, "Payload overflow in %s message of %dB! Excessive bytes dropped!.", 
+								ssapmsgtype_str(datagram->type), 
+								info_len - SSAPMSG_VARDATA_MAX_SIZE(audiomgr_device_info_payload_t)));
+					info_len = SSAPMSG_VARDATA_MAX_SIZE(audiomgr_device_info_payload_t);
+				}
+
+				datagram->payload_size = info_len;
+				pj_memcpy(p->device_info, &msg->device_info, info_len);
 				res = PJ_SUCCESS;
 				break;
 			}
